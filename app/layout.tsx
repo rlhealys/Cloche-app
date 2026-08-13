@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, Work_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -21,6 +21,16 @@ const utilityFont = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Cloche",
   description: "An infinite city menu.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "Cloche",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#f1e7d3",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

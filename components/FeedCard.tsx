@@ -1,35 +1,47 @@
-// Static layout only — hardcoded mock data, no props/live data yet (Step 7).
-const mockItem = {
-  name: "Brown Butter Agnolotti",
-  description:
-    "House-made pasta parcels filled with roasted squash and sage, finished with brown butter and toasted hazelnuts.",
-  price: 24,
-  hasImageAccent: true,
-};
+import Image from "next/image";
+import Link from "next/link";
+import DistanceBadge from "./DistanceBadge";
+import type { ConfirmedMenuItem } from "@/types";
 
-export default function FeedCard() {
+export default function FeedCard({
+  item,
+  userLat,
+  userLng,
+}: {
+  item: ConfirmedMenuItem;
+  userLat: number;
+  userLng: number;
+}) {
   return (
-    <article className="mx-auto flex h-full w-full max-w-md flex-col justify-center bg-parchment px-8 py-12 text-ink">
-      {mockItem.hasImageAccent && (
-        <div className="mb-6 ml-auto h-24 w-24 -rotate-2 rounded-sm border-4 border-ink/10 bg-gradient-to-br from-accent/30 to-ink/20 shadow-sm" />
-      )}
-
+    <article className="relative mx-auto flex h-full w-full max-w-md flex-col justify-center bg-parchment px-8 py-12 text-ink">
       <h1 className="font-display text-4xl leading-tight font-semibold tracking-tight">
-        {mockItem.name}
+        {item.name}
       </h1>
 
-      <p className="font-body mt-4 text-base leading-relaxed text-ink/70">
-        {mockItem.description}
-      </p>
+      {item.category && (
+        <p className="font-utility mt-2 text-xs font-medium tracking-widest text-ink/70 uppercase">
+          {item.category}
+        </p>
+      )}
 
-      <div className="mt-6 flex items-baseline gap-2">
-        <span className="flex-1 border-b border-dotted border-ink/40" />
-        <span className="font-utility text-lg font-medium tracking-wide text-accent">
-          ${mockItem.price.toFixed(2)}
+      <Link
+        href={`/restaurant/${item.restaurant_id}`}
+        className="mt-2 inline-flex w-fit items-center gap-2 text-ink/70 transition-colors hover:text-accent"
+      >
+        {item.hero_image_url && (
+          <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-sm border-2 border-ink/10 shadow-sm">
+            <Image
+              src={item.hero_image_url}
+              alt=""
+              fill
+              sizes="40px"
+              className="object-cover"
+            />
+          </span>
+        )}
+        <span className="font-utility text-xs font-medium tracking-widest uppercase">
+          {item.restaurant_name}
         </span>
-      </div>
-
-      <div className="font-utility mt-8 inline-flex w-fit items-center gap-2 rounded-full border border-ink/15 px-3 py-1 text-xs tracking-wide text-ink/60 uppercase">
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -37,13 +49,29 @@ export default function FeedCard() {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="h-3.5 w-3.5"
+          className="h-3 w-3 shrink-0"
           aria-hidden="true"
         >
-          <path d="M5 17h14M5 17a2 2 0 1 0 4 0M5 17a2 2 0 1 1 4 0M15 17a2 2 0 1 0 4 0M15 17a2 2 0 1 1 4 0M5 17V9l2-4h10l2 4v8" />
+          <path d="M9 18l6-6-6-6" />
         </svg>
-        <span>-- min away</span>
-      </div>
+      </Link>
+
+      {item.description && (
+        <p className="font-body mt-4 text-base leading-relaxed text-ink/70">
+          {item.description}
+        </p>
+      )}
+
+      {item.price !== null && (
+        <div className="mt-6 flex items-baseline gap-2">
+          <span className="flex-1 border-b border-dotted border-ink/40" />
+          <span className="font-utility text-lg font-medium tracking-wide text-accent">
+            ${item.price.toFixed(2)}
+          </span>
+        </div>
+      )}
+
+      <DistanceBadge userLat={userLat} userLng={userLng} lat={item.lat} lng={item.lng} />
     </article>
   );
 }

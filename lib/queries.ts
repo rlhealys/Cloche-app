@@ -1,23 +1,44 @@
 import { supabase } from "./supabase";
+import { haversineDistanceMiles } from "./distance";
 import type { ConfirmedMenuItem, SortMode } from "@/types";
 
-// Distance can't be ordered at the DB level (it depends on the caller's
-// live position, not a stored column), so candidates are pulled in bulk
-// and sorted here. Replaced by lib/distance.ts once that lands (Step 13).
-function haversineDistanceMiles(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): number {
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const earthRadiusMiles = 3958.8;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return earthRadiusMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+// Upper bound (miles) of each tier except the last, which is open-ended (10+).
+const DISTANCE_TIER_BOUNDARIES_MILES = [1, 3, 5, 10];
+
+function distanceTierIndex(distanceMiles: number): number {
+  for (let i = 0; i < DISTANCE_TIER_BOUNDARIES_MILES.length; i++) {
+    if (distanceMiles < DISTANCE_TIER_BOUNDARIES_MILES[i]) return i;
+  }
+  return DISTANCE_TIER_BOUNDARIES_MILES.length;
+}
+
+// Deterministic PRNG (mulberry32) so a shuffle can be reproduced from a seed —
+// lets a later paginated call reuse the same seed to keep ordering stable
+// across a session instead of re-shuffling on every request.
+function mulberry32(seed: number): () => number {
+  return function random() {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffleWithRandom<T>(items: T[], random: () => number): T[] {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+// A caller that wants to reuse a shuffle across paginated calls (see the
+// `seed` param below) should generate one with this and hold onto it,
+// rather than let each call default to its own random seed.
+export function generateFeedSeed(): number {
+  return Math.floor(Math.random() * 2 ** 31);
 }
 
 export async function getFeedItems(
@@ -25,7 +46,10 @@ export async function getFeedItems(
   userLat: number,
   userLng: number,
   offset: number,
-  limit: number
+  limit: number,
+  // Pass the same seed across paginated calls within one page load to keep
+  // the shuffle stable; omit it to get a fresh shuffle (e.g. on page load).
+  seed: number = generateFeedSeed()
 ): Promise<ConfirmedMenuItem[]> {
   if (sort === "distance") {
     const { data, error } = await supabase
@@ -35,13 +59,19 @@ export async function getFeedItems(
 
     if (error) throw error;
 
-    const sorted = (data ?? []).sort(
-      (a, b) =>
-        haversineDistanceMiles(userLat, userLng, a.lat, a.lng) -
-        haversineDistanceMiles(userLat, userLng, b.lat, b.lng)
+    const tiers: ConfirmedMenuItem[][] = Array.from(
+      { length: DISTANCE_TIER_BOUNDARIES_MILES.length + 1 },
+      () => []
     );
+    for (const item of data ?? []) {
+      const distance = haversineDistanceMiles(userLat, userLng, item.lat, item.lng);
+      tiers[distanceTierIndex(distance)].push(item);
+    }
 
-    return sorted.slice(offset, offset + limit);
+    const random = mulberry32(seed);
+    const ordered = tiers.flatMap((tier) => shuffleWithRandom(tier, random));
+
+    return ordered.slice(offset, offset + limit);
   }
 
   const { data, error } = await supabase

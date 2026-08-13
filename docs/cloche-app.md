@@ -8,7 +8,7 @@ Platform note: this was originally scoped as a React Native/Expo native app. It 
 
 ## 1. Scope & Goal
 
-- Build the consumer-facing feed experience as a responsive website: a full-screen, vertically swipeable feed of confirmed menu items, filterable by distance and price, with a tap-through to a full restaurant menu view.
+- Build the consumer-facing feed experience as a responsive website: a full-screen, vertically swipeable feed of confirmed menu items, defaulting to the tiered distance-shuffle discovery model (see Section 4.3), with a tap-through to a full restaurant menu view. No filter/sort UI in the MVP — see Section 6 and Section 9.
 - Works on phone (the primary target) and desktop (secondary, from the same codebase) via a browser — no app store, no install required to use it.
 - This document covers only the app/web repo. It does not cover the pipeline (see cloche-pipeline.md) or shared schema (see cloche-overview.md).
 
@@ -83,8 +83,15 @@ Platform note: this was originally scoped as a React Native/Expo native app. It 
 - SortMode type — one of: "distance", "price_low", "price_high"
 
 ### 4.3 Query Layer (lib/queries.ts)
-- getFeedItems(sort, userLat, userLng, offset, limit) — queries the confirmed_menu_items view, never menu_items directly.
-- getRestaurantMenu(restaurantId) — queries confirmed_menu_items filtered by restaurant_id, grouped by category on the client side.
+- getFeedItems(sort, userLat, userLng, offset, limit) — queries the confirmed_menu_items view, never menu_items directly. In the MVP, this is always called with the tiered-shuffle default — there is no filter/sort UI exposed to the user (see Section 6). The function's price_low/price_high branches (already built in Step 6) remain in the code but are unused/dormant for now — not exposed anywhere — kept for when price filtering returns as a New Step (see Section 9).
+- The default (and only, for MVP) mode is tiered shuffle, matching the original "infinite city menu" discovery intent, not a leaderboard. Behavior:
+  - Bucket items into distance tiers: 0–1 mi, 1–3 mi, 3–5 mi, 5–10 mi, 10+ mi.
+  - Shuffle items randomly within each tier.
+  - Concatenate tiers in order (nearest tier first), so the feed still generally favors closer restaurants, but never deterministically shows the exact same single "best" item every time.
+  - The shuffle is computed once per page load and held stable while scrolling/paginating within that same load — it does not re-shuffle every time more items are fetched. A fresh page load computes a new shuffle.
+  - To make this actually work across multiple separate pagination calls (each fetch is a fresh server request, not a continuation of previous state): the client generates one random seed value when the feed first loads, and passes that same seed to every subsequent getFeedItems call, including paginated ones. getFeedItems uses this seed to produce a deterministic shuffle order — same seed always yields the same tier-bucketed, shuffled order — so slicing by offset/limit across multiple calls never duplicates or skips items. A page reload generates a new seed, producing a fresh shuffle.
+  - This reuses the same client-side distance-computation approach already noted as a known limitation in Step 6 (pull candidate rows, compute haversine, process client-side) — tiering and shuffling slot into that same code path.
+- getRestaurantMenu(restaurantId) — queries confirmed_menu_items filtered by restaurant_id, grouped by category on the client side. Not affected by any of the above — a restaurant's full menu is always shown complete and unshuffled.
 
 ### 4.4 Distance Calculation
 - MVP approach: straight-line (haversine) distance between device GPS and restaurant lat/lng, converted to an estimated drive time using an assumed average speed (e.g. 30 mph in a city context). This is an approximation, not a real routing engine — acceptable for MVP.
@@ -102,7 +109,7 @@ This section exists because the original Cloche concept was explicitly built aro
   - Utility (price, distance badge, category labels): a monospace or small-caps treatment, evoking a printed price tag or ticket stub — small, structural, not decorative.
 - Layout — the card behaves like a page of a printed menu, not a social-feed photo post: item name in large display type near the top, description in body type below it, price set apart on its own line (consider a dot-leader style connector between name and price, like "...................$14" as seen on real menus, if it doesn't hurt legibility on mobile). If a dish photo exists, it appears as a smaller framed accent (e.g. a corner or side element), not a full-bleed background behind the text. If no dish photo exists, the card should look complete and intentional on its own — never like something is missing.
 - Signature element — the dot-leader price line, consistent across every card. Cuisine-coded accents will join this as a second signature device once that schema work happens (see the color note above).
-- This direction applies to the Feed Screen cards (5.1) and should extend visually to the Menu Viewer Screen (5.3) so the whole app feels like one continuous menu, not two different design languages.
+- This direction applies to the Feed Screen cards (5.1) and should extend visually to the Menu Viewer Screen (5.2) so the whole app feels like one continuous menu, not two different design languages.
 - Responsive note: since this now runs on desktop too (not just mobile), the full-screen card should remain centered and at a sensible max-width on wide viewports rather than stretching edge-to-edge — this leaves genuine unused space on the sides on desktop, which is expected and fine; nothing needs to fill that space for this build.
 
 ---
@@ -121,15 +128,11 @@ This section exists because the original Cloche concept was explicitly built aro
   - Distance badge — utility-face type, car icon + "X min away"
   - Category, if present, shown as a small utility-face label
   - Default accent color applied per Section 4.5 (cuisine-coding deferred — see 4.5)
-  - Filter icon (top corner) — opens Filter Sheet
+  - No filter icon in the MVP — the feed always uses the default tiered distance-shuffle; see Section 6 and Section 9
 - Swipe/scroll down moves to the next item; swipe/scroll up moves to the previous item.
 - Infinite-scroll pagination: fetch next batch (~20 items) as user nears the end of the loaded set.
 
-### 5.2 Filter Sheet
-- Modal/panel with sort options: Distance (default), Price low to high, Price high to low.
-- Applying a filter re-runs the query and resets feed position to the top.
-
-### 5.3 Menu Viewer Screen (app/restaurant/[id]/page.tsx)
+### 5.2 Menu Viewer Screen (app/restaurant/[id]/page.tsx)
 - Header: restaurant name, address, hero image.
 - Body: all confirmed items for that restaurant, grouped under category headers; items with category = null grouped under an "Other" heading.
 - Visually consistent with the Section 4.5 design system — same typography roles, same feel as the feed cards.
@@ -139,6 +142,7 @@ This section exists because the original Cloche concept was explicitly built aro
 
 ## 6. Explicitly Out of Scope for MVP
 
+- No filter/sort UI — the feed always uses the default tiered distance-shuffle (Section 4.3). A "Distance" filter option specifically would be redundant, since it's already the always-on default — there's nothing for it to switch to. Price and/or cuisine filtering may return later as a New Step (see Section 9), but "Distance" as a selectable filter will not be added.
 - No native app / app store distribution — web-only for now. Native app remains a possible future direction post-validation, not abandoned.
 - No offline support or service worker caching — install-to-home-screen only, not a full offline-capable PWA.
 - No login/auth screens — anonymous access only.
@@ -173,9 +177,9 @@ This section exists because the original Cloche concept was explicitly built aro
   - Replace the mock data with real data pulled from Supabase, and add CSS scroll-snap paging plus infinite loading of more items as the user scrolls.
   - Done when: you can open the deployed URL on your phone and swipe through real confirmed menu items pulled from your database, with a feel comparable to a native reel.
 
-- Phase A5 — Distance & Filtering
-  - Add browser geolocation permission/location (tested against the real deployed HTTPS URL, not a local IP), the distance-to-restaurant calculation, and the Filter Sheet letting the user sort the feed by distance or price.
-  - Done when: cards show a real "X min away" badge based on your actual location on a real phone, and changing the sort option visibly reorders the feed.
+- Phase A5 — Distance
+  - Add browser geolocation permission/location (tested against the real deployed HTTPS URL, not a local IP), and the distance-to-restaurant calculation.
+  - Done when: cards show a real "X min away" badge based on your actual location on a real phone.
 
 - Phase A6 — Menu Viewer Screen
   - Build the second screen: tapping a restaurant's name on a card opens a full list of everything confirmed for that restaurant, grouped by category.
@@ -204,14 +208,12 @@ Direct the AI through these one at a time, confirming each before proceeding. Ea
 - Step 11 [A4] — Implement infinite-scroll pagination: fetch the next batch as the user approaches the end of the currently loaded items.
 - Step 12 [A5] — Request geolocation permission and retrieve device location via navigator.geolocation. Test this specifically against the deployed HTTPS URL on a real phone, not a local network address, since geolocation requires a secure context.
 - Step 13 [A5] — Create lib/distance.ts with the haversine distance and estimated-minutes calculation described in Section 4.4, and wire real distances into DistanceBadge.
-- Step 14 [A5] — Build components/FilterSheet.tsx with the three sort options, and a filter store (store/filterStore.ts) holding current sort mode.
-- Step 15 [A5] — Wire the Filter Sheet's selected sort mode into getFeedItems, resetting feed position to the top on change.
-- Step 16 [A6] — Build app/restaurant/[id]/page.tsx calling getRestaurantMenu, rendering items grouped by category under a restaurant header, styled consistently with the Section 4.5 design system.
-- Step 17 [A6] — Wire restaurant-name clicks on FeedCard to navigate to the corresponding restaurant/[id] route.
-- Step 18 [A7] — Add loading states (feed loading, menu viewer loading) and empty states (no items found, no items for a restaurant).
-- Step 19 [A7] — Add error handling for failed Supabase queries and denied/failed location permission (with a sensible fallback, e.g. sort by price if location is denied).
-- Step 20 [A7] — Add a web app manifest (public/manifest.json) and Apple meta tags in the root layout for optional "Add to Home Screen" support. No service worker / offline caching needed.
-- Step 21 [A7] — Verify responsive behavior on a wide desktop viewport: the card should stay centered at a sensible max-width, not stretch edge-to-edge. Then do a final visual polish pass: typography, spacing, contrast, icon consistency.
+- Step 14 [A6] — Build app/restaurant/[id]/page.tsx calling getRestaurantMenu, rendering items grouped by category under a restaurant header, styled consistently with the Section 4.5 design system.
+- Step 15 [A6] — Wire restaurant-name clicks on FeedCard to navigate to the corresponding restaurant/[id] route.
+- Step 16 [A7] — Add loading states (feed loading, menu viewer loading) and empty states (no items found, no items for a restaurant).
+- Step 17 [A7] — Add error handling for failed Supabase queries and denied/failed location permission (with a sensible fallback, e.g. keep using the last known/placeholder location if denied).
+- Step 18 [A7] — Add a web app manifest (public/manifest.json) and Apple meta tags in the root layout for optional "Add to Home Screen" support. No service worker / offline caching needed.
+- Step 19 [A7] — Verify responsive behavior on a wide desktop viewport: the card should stay centered at a sensible max-width, not stretch edge-to-edge. The location/item-count pills are now a permanent UI feature (see Section 9) and should be left in place. Then do a final visual polish pass: typography, spacing, contrast, icon consistency.
 
 ---
 
@@ -221,11 +223,16 @@ This is not a changelog. This is where new steps go when a decision made later �
 
 Each entry should be self-contained enough to copy directly into a prompt on its own, without needing the rest of this conversation for context.
 
-Format:
-- New Step [date or short label] — [exact instruction, written the same way as a numbered Step above]. Status: pending / done.
+Addition: Feed Card Layout Overhaul (Restaurant Link, Category, Directions Badge)
 
-- New Step (Crowd Support Upvotes — deferred until core PWA is confirmed working on a real device) — Add Supabase anonymous auth (silent session on app load, no login screen). Add a votes table (id, menu_item_id FK, user_id FK, created_at) with a unique constraint on (menu_item_id, user_id) — this is a schema change that belongs in cloche-overview.md first, since it's shared. Add a denormalized upvote_count column on menu_items, kept in sync via a Postgres trigger on votes insert. In the app: a double-tap gesture on a feed card registers an upvote (one per person per dish, enforced server-side via the unique constraint, not just client-side), with a brief burst animation on tap. Change getFeedItems' shuffle within a distance tier from uniform random to weighted-random using weight = 1 + log(1 + upvote_count). No visible count below a threshold (start at 10); above it, show a subtle badge ("Local favorite" or similar) styled per the Section 4.5 design system — no arrows, ratio bars, or star ratings. No downvotes or any negative public signal. Status: pending.
+  New Step [card-layout-1] — On FeedCard, combine the restaurant's hero image (hero_image_url) and restaurant name into a single clickable unit: small framed restaurant image directly next to the restaurant name, both wrapped in one tap/click target navigating to restaurant/[id] (same destination as the current restaurant-name link). Add a small visual indicator (e.g. a chevron or arrow icon) next to the name signaling that this element opens the full menu, styled per the Section 4.5 utility-face treatment. This combined unit replaces the current separate placement of restaurant name and item image accent. Status: done.
 
-- Note (not a step) — Monetization direction: restaurant-paid sponsored/featured placement within distance tiers, plus a desktop-only ad rail using the unused side space noted in Section 4.5's responsive layout (CSS media query or conditional render above a width breakpoint; mobile never mounts the ad component). Not actionable yet — no real traffic exists to sell placement against or justify ad infrastructure. Revisit as a real conversation once the app has genuine usage, not before.
+  New Step [card-layout-2] — In the position directly under the item name (currently occupied by the restaurant name, per the pre-existing layout), display the item's category instead, styled in the Section 4.5 utility-face treatment (same small-caps/monospace tag style already used for category elsewhere). If category is null, omit this element entirely rather than showing an empty or placeholder label, consistent with the design system's "never look like something is missing" principle. Status: done.
 
-- Note (not a step) — Cuisine-coded accent colors, per Section 4.5: requires adding a cuisine field to restaurants in cloche-overview.md first (pipeline-side work), then a corresponding app-side step to apply per-cuisine accent colors on feed cards. Revisit once ready to make that schema change.
+  New Step [card-layout-3] — Enlarge the distance badge and change its content to read "Get Directions" combined with the car icon and the estimated drive time (e.g. "🚗 Get Directions · 8 min"), exact copy/format left to implementation but must combine all three elements (label, icon, time) into one visually cohesive badge. Reposition it centered at the bottom of the card, below the price line. This is display-only for now — no click/tap behavior yet (that will be wired up in a future step to open real directions). Status: done.
+
+--- (end of addition: feed card layout overhaul)
+
+
+
+

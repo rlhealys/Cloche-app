@@ -1,0 +1,17 @@
+{
+  "name": "Cloche",
+  "short_name": "Cloche",
+  "description": "An infinite city menu.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f1e7d3",
+  "theme_color": "#f1e7d3",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

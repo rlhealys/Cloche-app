@@ -14,6 +14,38 @@ export default function FeedCard({
 }) {
   return (
     <article className="relative mx-auto flex h-full w-full max-w-md flex-col justify-center bg-parchment px-8 py-12 text-ink">
+      <Link
+        href={`/restaurant/${item.restaurant_id}`}
+        className="mb-6 ml-auto flex w-fit items-center gap-3 text-ink/70 transition-colors hover:text-accent"
+      >
+        {item.hero_image_url && (
+          <span className="relative h-24 w-24 shrink-0 -rotate-2 overflow-hidden rounded-sm border-4 border-ink/10 shadow-sm">
+            <Image
+              src={item.hero_image_url}
+              alt=""
+              fill
+              sizes="96px"
+              className="object-cover"
+            />
+          </span>
+        )}
+        <span className="font-utility inline-flex items-center gap-2 text-xs font-medium tracking-widest uppercase">
+          {item.restaurant_name}
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-3 w-3 shrink-0"
+            aria-hidden="true"
+          >
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </span>
+      </Link>
+
       <h1 className="font-display text-4xl leading-tight font-semibold tracking-tight">
         {item.name}
       </h1>
@@ -23,38 +55,6 @@ export default function FeedCard({
           {item.category}
         </p>
       )}
-
-      <Link
-        href={`/restaurant/${item.restaurant_id}`}
-        className="mt-2 inline-flex w-fit items-center gap-2 text-ink/70 transition-colors hover:text-accent"
-      >
-        {item.hero_image_url && (
-          <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-sm border-2 border-ink/10 shadow-sm">
-            <Image
-              src={item.hero_image_url}
-              alt=""
-              fill
-              sizes="40px"
-              className="object-cover"
-            />
-          </span>
-        )}
-        <span className="font-utility text-xs font-medium tracking-widest uppercase">
-          {item.restaurant_name}
-        </span>
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="h-3 w-3 shrink-0"
-          aria-hidden="true"
-        >
-          <path d="M9 18l6-6-6-6" />
-        </svg>
-      </Link>
 
       {item.description && (
         <p className="font-body mt-4 text-base leading-relaxed text-ink/70">

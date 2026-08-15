@@ -2,8 +2,8 @@ import { supabase } from "./supabase";
 import { haversineDistanceMiles } from "./distance";
 import type { ConfirmedMenuItem, SortMode } from "@/types";
 
-// Upper bound (miles) of each tier except the last, which is open-ended (10+).
-const DISTANCE_TIER_BOUNDARIES_MILES = [1, 3, 5, 10];
+// Upper bound (miles) of each tier except the last, which is open-ended (50+).
+const DISTANCE_TIER_BOUNDARIES_MILES = [5, 15, 30, 50];
 
 function distanceTierIndex(distanceMiles: number): number {
   for (let i = 0; i < DISTANCE_TIER_BOUNDARIES_MILES.length; i++) {

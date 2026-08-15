@@ -255,4 +255,8 @@ Addition: Get Directions Button — Export to Google Maps
 
 --- (end of addition: get directions button — export to google maps)
 
+Addition: Widen Distance Tier Boundaries
 
+  New Step [wide-tiers-1] — In lib/queries.ts, change getFeedItems' distance tier boundaries (Section 4.3) from 0–1 mi, 1–3 mi, 3–5 mi, 5–10 mi, 10+ mi to 0–5 mi, 5–15 mi, 15–30 mi, 30–50 mi. The tiered-shuffle mechanic itself (haversine-based, shuffle within tier, concatenate nearest-tier-first, seeded/stable across pagination) is unchanged — only the boundary values are updated, to better span Houston's actual geographic footprint at launch. No change to distance calculation method (haversine) or the DistanceBadge display logic.
+
+--- (end of addition: widen distance tier boundaries)

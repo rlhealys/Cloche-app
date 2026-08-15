@@ -76,6 +76,7 @@ export default function FeedCard({
         userLng={userLng}
         lat={item.lat}
         lng={item.lng}
+        placeId={item.place_id}
         restaurantId={item.restaurant_id}
         restaurantName={item.restaurant_name}
       />

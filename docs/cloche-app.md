@@ -247,4 +247,12 @@ Addition: Fix Inaccurate/Stale Geolocation (Safari)
 
 --- (end of addition: fix inaccurate/stale geolocation)
 
+Addition: Get Directions Button — Export to Google Maps
+
+  New Step [get-directions-1] — Wire the "Get Directions" badge (added display-only in card-layout-3) to open a Google Maps directions link on click: https://www.google.com/maps/dir/?api=1&destination=<restaurant lat>,<restaurant lng>&destination_place_id=<restaurant place_id>. No origin parameter is passed — Google Maps automatically uses the device's own current location as the starting point. Both lat/lng and place_id are already stored on the restaurant from the existing Google Places lookup; no schema change or new data needed.
+
+  New Step [get-directions-2] — Open the link via window.open(url, '_blank') so it opens in a new tab, keeping the feed alive in the background rather than navigating away from the PWA.
+
+--- (end of addition: get directions button — export to google maps)
+
 

@@ -1,10 +1,22 @@
 import { estimateMinutesAway, haversineDistanceMiles } from "@/lib/distance";
 
+// No origin param — Google Maps uses the device's own current location as
+// the starting point.
+function buildDirectionsUrl(lat: number, lng: number, placeId: string | null): string {
+  const params = new URLSearchParams({
+    api: "1",
+    destination: `${lat},${lng}`,
+  });
+  if (placeId) params.set("destination_place_id", placeId);
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
 export default function DistanceBadge({
   userLat,
   userLng,
   lat,
   lng,
+  placeId = null,
   restaurantId,
   restaurantName,
 }: {
@@ -12,11 +24,13 @@ export default function DistanceBadge({
   userLng: number;
   lat: number;
   lng: number;
+  placeId?: string | null;
   restaurantId?: string;
   restaurantName?: string;
 }) {
   const distanceMiles = haversineDistanceMiles(userLat, userLng, lat, lng);
   const minutes = estimateMinutesAway(distanceMiles);
+  const directionsUrl = buildDirectionsUrl(lat, lng, placeId);
 
   // TEMP DEBUG — remove after distance bug investigation
   console.log("[DEBUG DISTANCE][DistanceBadge]", {
@@ -31,7 +45,10 @@ export default function DistanceBadge({
   });
 
   return (
-    <div className="font-utility absolute bottom-10 left-1/2 inline-flex w-fit -translate-x-1/2 items-center gap-2.5 rounded-full border border-ink/15 bg-parchment px-5 py-2.5 text-sm tracking-wide text-ink/70 uppercase shadow-sm">
+    <a
+      href={directionsUrl}
+      className="font-utility absolute bottom-10 left-1/2 inline-flex w-fit -translate-x-1/2 items-center gap-2.5 rounded-full border border-ink/15 bg-parchment px-5 py-2.5 text-sm tracking-wide text-ink/70 uppercase shadow-sm transition-colors hover:text-accent"
+    >
       <svg
         viewBox="0 0 24 24"
         fill="none"
@@ -47,6 +64,6 @@ export default function DistanceBadge({
       <span>Get Directions</span>
       <span className="text-ink/40">·</span>
       <span>{minutes} min</span>
-    </div>
+    </a>
   );
 }

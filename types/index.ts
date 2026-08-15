@@ -11,6 +11,7 @@ export type ConfirmedMenuItem = {
   lng: number;
   hero_image_url: string | null;
   address: string;
+  place_id: string | null;
 };
 
 export type SortMode = "distance" | "price_low" | "price_high";

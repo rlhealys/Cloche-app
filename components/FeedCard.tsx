@@ -71,7 +71,14 @@ export default function FeedCard({
         </div>
       )}
 
-      <DistanceBadge userLat={userLat} userLng={userLng} lat={item.lat} lng={item.lng} />
+      <DistanceBadge
+        userLat={userLat}
+        userLng={userLng}
+        lat={item.lat}
+        lng={item.lng}
+        restaurantId={item.restaurant_id}
+        restaurantName={item.restaurant_name}
+      />
     </article>
   );
 }

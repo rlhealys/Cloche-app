@@ -5,14 +5,30 @@ export default function DistanceBadge({
   userLng,
   lat,
   lng,
+  restaurantId,
+  restaurantName,
 }: {
   userLat: number;
   userLng: number;
   lat: number;
   lng: number;
+  restaurantId?: string;
+  restaurantName?: string;
 }) {
   const distanceMiles = haversineDistanceMiles(userLat, userLng, lat, lng);
   const minutes = estimateMinutesAway(distanceMiles);
+
+  // TEMP DEBUG — remove after distance bug investigation
+  console.log("[DEBUG DISTANCE][DistanceBadge]", {
+    restaurantId,
+    restaurantName,
+    userLat,
+    userLng,
+    restaurantLat: lat,
+    restaurantLng: lng,
+    rawDistanceMiles: distanceMiles,
+    finalMinutes: minutes,
+  });
 
   return (
     <div className="font-utility absolute bottom-10 left-1/2 inline-flex w-fit -translate-x-1/2 items-center gap-2.5 rounded-full border border-ink/15 bg-parchment px-5 py-2.5 text-sm tracking-wide text-ink/70 uppercase shadow-sm">

@@ -233,6 +233,18 @@ Addition: Feed Card Layout Overhaul (Restaurant Link, Category, Directions Badge
 
 --- (end of addition: feed card layout overhaul)
 
+Addition: Fix Inaccurate/Stale Geolocation (Safari)
 
+  New Step [geo-fix-1] — Locate the placeholder/dummy location introduced in Step 9 [A4] (used before real geolocation was wired up in Step 12) and confirm it is not being used as a silent fallback anywhere post-Step-12. If any code path still falls back to this dummy coordinate on error, timeout, or permission-denied, that fallback must be replaced with an explicit error/empty state (see geo-fix-4), never a silent hardcoded location.
+
+  New Step [geo-fix-2] — Update the navigator.geolocation.getCurrentPosition call to explicitly pass { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }. Without enableHighAccuracy, Safari (particularly iOS) commonly returns a fast, coarse, cell-tower/IP-triangulated position rather than a real GPS fix — which often lands near a city's general center rather than the user's actual location. maximumAge: 0 ensures a fresh fix is requested each time rather than serving a cached one.
+
+  New Step [geo-fix-3] — Confirm location is requested fresh on every page load/visit — not persisted or cached across sessions via localStorage, cookies, or similar — so that a user who has physically moved and reopens the site gets an updated position, not a stored one from a previous visit.
+
+  New Step [geo-fix-4] — Add an explicit handled state for geolocation permission-denied or timeout: show a clear message/state in the UI rather than silently defaulting to any hardcoded or placeholder coordinate. The feed should not pretend to have an accurate location when it doesn't.
+
+  New Step [geo-fix-5] — Using the restored debug pills (restore-debug-pills-1), verify on a real iPhone in Safari that the displayed lat/lng matches actual physical location, and that it changes appropriately when physically moving to a different location and reloading.
+
+--- (end of addition: fix inaccurate/stale geolocation)
 
 

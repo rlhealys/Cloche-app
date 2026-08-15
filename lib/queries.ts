@@ -65,7 +65,21 @@ export async function getFeedItems(
     );
     for (const item of data ?? []) {
       const distance = haversineDistanceMiles(userLat, userLng, item.lat, item.lng);
-      tiers[distanceTierIndex(distance)].push(item);
+      const tierIndex = distanceTierIndex(distance);
+
+      // TEMP DEBUG — remove after distance bug investigation
+      console.log("[DEBUG DISTANCE][getFeedItems tiering]", {
+        restaurantId: item.restaurant_id,
+        restaurantName: item.restaurant_name,
+        userLat,
+        userLng,
+        restaurantLat: item.lat,
+        restaurantLng: item.lng,
+        rawDistanceMiles: distance,
+        tierIndex,
+      });
+
+      tiers[tierIndex].push(item);
     }
 
     const random = mulberry32(seed);

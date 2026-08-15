@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import FeedCard from "./FeedCard";
 import LoadingIndicator from "./LoadingIndicator";
+import EmptyState from "./EmptyState";
 import { getFeedItems } from "@/lib/queries";
 import type { ConfirmedMenuItem, SortMode } from "@/types";
 
@@ -12,43 +13,32 @@ const BATCH_SIZE = 20;
 // fetch has time to land before the user actually reaches it.
 const PREFETCH_THRESHOLD = 3;
 
-export default function Feed({
-  initialItems,
-  sort,
-  userLat,
-  userLng,
-  seed,
-}: {
-  initialItems: ConfirmedMenuItem[];
-  sort: SortMode;
-  userLat: number;
-  userLng: number;
-  seed: number;
-}) {
-  const [items, setItems] = useState(initialItems);
-  const [hasMore, setHasMore] = useState(initialItems.length === BATCH_SIZE);
+export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
+  // Real device coordinates only — null until navigator.geolocation resolves.
+  // There is no placeholder/dummy value here: nothing is fetched or rendered
+  // until a real fix is available (see render logic below).
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  // null = no batch fetched yet; [] = fetched, but genuinely no results.
+  const [items, setItems] = useState<ConfirmedMenuItem[] | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadMoreFailed, setLoadMoreFailed] = useState(false);
-  // Tracks the effective location (placeholder until real geolocation
-  // resolves) as state, not just the ref below, so DistanceBadge re-renders
-  // with real distances once it's available.
-  const [userLocation, setUserLocation] = useState({ lat: userLat, lng: userLng });
 
   // Refs, not state, so loadMore always reads live values instead of a
   // snapshot captured in a stale closure — a concurrent/duplicate observer
   // firing (e.g. React Strict Mode's dev double-invoke, or a fast re-scroll)
   // must not be able to re-request an offset that's already in flight or done.
-  const offsetRef = useRef(initialItems.length);
-  const hasMoreRef = useRef(hasMore);
+  const offsetRef = useRef(0);
+  // Optimistic until the first fetch reports otherwise — this also covers
+  // the very first (offset 0) fetch, since it's just loadMore called once
+  // real coordinates are known.
+  const hasMoreRef = useRef(true);
   const loadingRef = useRef(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
-  // Starts at the server-provided placeholder; updated once real geolocation
-  // resolves. A ref (not state) so pagination fetches always read the live
-  // value without needing loadMore to be recreated when location changes.
-  const coordsRef = useRef({ lat: userLat, lng: userLng });
+  // Mirrors `coords` state; only ever set from a real geolocation fix.
+  const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const loadMore = useCallback(async () => {
-    if (loadingRef.current || !hasMoreRef.current) return;
+    if (loadingRef.current || !hasMoreRef.current || !coordsRef.current) return;
     loadingRef.current = true;
     setIsLoadingMore(true);
     setLoadMoreFailed(false);
@@ -62,8 +52,7 @@ export default function Feed({
       offsetRef.current = offset + next.length;
       hasMoreRef.current = next.length === BATCH_SIZE;
 
-      setItems((prev) => [...prev, ...next]);
-      setHasMore(hasMoreRef.current);
+      setItems((prev) => [...(prev ?? []), ...next]);
     } catch (error) {
       // Leave offsetRef/hasMoreRef untouched so the same batch can be retried.
       console.error(error);
@@ -87,46 +76,57 @@ export default function Feed({
     [loadMore]
   );
 
+  // Request a real geolocation fix, then fetch the first batch against it.
+  // On denial/timeout/unavailability, coordsRef/coords are simply never
+  // set, so the render below stays on the loading state indefinitely —
+  // there is no dummy coordinate to silently fall back to. (An explicit
+  // denied/timeout message is a separate follow-up, not handled here.)
   useEffect(() => {
     if (!("geolocation" in navigator)) return;
 
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
+      (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
         coordsRef.current = { lat, lng };
-        setUserLocation({ lat, lng });
-
-        // Location just changed from the placeholder — re-fetch from the
-        // top so distance tiering reflects where the device actually is.
-        loadingRef.current = true;
-        try {
-          const fresh = await getFeedItems(sort, lat, lng, 0, BATCH_SIZE, seed);
-          offsetRef.current = fresh.length;
-          hasMoreRef.current = fresh.length === BATCH_SIZE;
-          setItems(fresh);
-          setHasMore(hasMoreRef.current);
-        } catch (error) {
-          // Keep whatever's already on screen (the placeholder-based batch)
-          // rather than clearing it out over a background refresh failure.
-          console.error(error);
-        } finally {
-          loadingRef.current = false;
-        }
+        setCoords({ lat, lng });
+        loadMore();
       },
       () => {
-        // Denied or unavailable — coordsRef/userLocation are simply never
-        // updated, so the feed keeps using the last known/placeholder
-        // location, per spec. Nothing else to do here.
+        // Denied or unavailable — intentionally left unhandled here.
       }
     );
-  }, [sort, seed]);
+  }, [loadMore]);
+
+  if (!coords || items === null) {
+    return (
+      <main className="flex h-dvh w-full flex-col items-center justify-center gap-4 bg-parchment px-8">
+        <LoadingIndicator />
+        {loadMoreFailed && (
+          <button
+            onClick={loadMore}
+            className="font-utility rounded-full border border-ink/15 bg-parchment/95 px-3 py-1.5 text-xs font-medium tracking-widest text-ink/70 uppercase shadow-sm transition-colors hover:text-accent"
+          >
+            Couldn&apos;t load the feed — tap to retry
+          </button>
+        )}
+      </main>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <main className="flex h-dvh w-full items-center justify-center bg-parchment px-8">
+        <EmptyState message="No dishes to show yet — check back soon." />
+      </main>
+    );
+  }
 
   return (
     <main className="h-dvh w-full snap-y snap-mandatory overflow-y-scroll overscroll-y-contain bg-parchment">
       {items.map((item, index) => (
         <section key={item.id} className="relative h-dvh w-full snap-start snap-always">
-          <FeedCard item={item} userLat={userLocation.lat} userLng={userLocation.lng} />
+          <FeedCard item={item} userLat={coords.lat} userLng={coords.lng} />
           {index === items.length - PREFETCH_THRESHOLD && (
             <div ref={sentinelRef} className="pointer-events-none absolute bottom-0 h-px w-px" />
           )}
@@ -134,7 +134,7 @@ export default function Feed({
       ))}
       <div className="fixed top-4 right-4 z-50 flex flex-col items-end gap-2">
         <div className="font-utility rounded-full border border-ink/15 bg-parchment/95 px-3 py-1.5 text-xs tracking-widest text-ink/70 uppercase shadow-sm">
-          {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
+          {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
         </div>
         <div className="font-utility rounded-full border border-ink/15 bg-parchment/95 px-3 py-1.5 text-xs tracking-widest text-ink/70 uppercase shadow-sm">
           {items.length} loaded

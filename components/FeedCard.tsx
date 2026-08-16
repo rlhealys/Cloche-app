@@ -16,7 +16,7 @@ export default function FeedCard({
     <article className="relative mx-auto flex h-full w-full max-w-md flex-col justify-center bg-parchment px-8 py-12 text-ink">
       <Link
         href={`/restaurant/${item.restaurant_id}`}
-        className="glass-chip mb-6 ml-auto flex w-fit items-center gap-3 rounded-full py-2 pr-5 pl-2 text-ink/70 shadow-sm transition-colors hover:text-accent"
+        className="mb-6 ml-auto flex w-fit items-center gap-3 text-ink/70 transition-colors hover:text-accent"
       >
         {item.hero_image_url && (
           <span className="relative h-24 w-24 shrink-0 -rotate-2 overflow-hidden rounded-sm border-4 border-ink/10 shadow-sm">

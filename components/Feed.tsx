@@ -76,6 +76,20 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
     [loadMore]
   );
 
+  // Scroll-snap must live on the actual scrolling element for Safari to tie
+  // its native toolbar auto-hide to it. Previously that was an inner h-dvh
+  // div with its own overflow-y-scroll, which kept the document itself from
+  // ever overflowing/scrolling — invisible to that heuristic. Scoped to this
+  // component's lifecycle (not globals.css/layout.tsx) since /restaurant/[id]
+  // shares the same html/body and must stay a plain, non-snapping scroll.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("snap-y", "snap-mandatory", "overscroll-y-contain");
+    return () => {
+      root.classList.remove("snap-y", "snap-mandatory", "overscroll-y-contain");
+    };
+  }, []);
+
   // Request a real geolocation fix, then fetch the first batch against it.
   // On denial/timeout/unavailability, coordsRef/coords are simply never
   // set, so the render below stays on the loading state indefinitely —
@@ -123,7 +137,7 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
   }
 
   return (
-    <main className="h-dvh w-full snap-y snap-mandatory overflow-y-scroll overscroll-y-contain bg-parchment">
+    <main className="w-full bg-parchment">
       {items.map((item, index) => (
         <section key={item.id} className="relative h-dvh w-full snap-start snap-always">
           <FeedCard item={item} userLat={coords.lat} userLng={coords.lng} />

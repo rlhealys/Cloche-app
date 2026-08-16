@@ -23,3 +23,14 @@ body {
   color: var(--ink);
   font-family: var(--font-body), Arial, Helvetica, sans-serif;
 }
+
+/* Frosted-glass treatment for pill/badge/button overlay elements sitting on
+   top of feed cards (Section 4.5) — semi-transparent fill + backdrop blur +
+   a light edge highlight, so it reads against varied card backgrounds
+   rather than just blending into the flat parchment base. */
+@utility glass-chip {
+  background-color: rgb(255 255 255 / 50%);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgb(255 255 255 / 55%);
+}

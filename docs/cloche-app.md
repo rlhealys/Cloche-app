@@ -260,3 +260,21 @@ Addition: Widen Distance Tier Boundaries
   New Step [wide-tiers-1] — In lib/queries.ts, change getFeedItems' distance tier boundaries (Section 4.3) from 0–1 mi, 1–3 mi, 3–5 mi, 5–10 mi, 10+ mi to 0–5 mi, 5–15 mi, 15–30 mi, 30–50 mi. The tiered-shuffle mechanic itself (haversine-based, shuffle within tier, concatenate nearest-tier-first, seeded/stable across pagination) is unchanged — only the boundary values are updated, to better span Houston's actual geographic footprint at launch. No change to distance calculation method (haversine) or the DistanceBadge display logic.
 
 --- (end of addition: widen distance tier boundaries)
+
+Addition: Glassmorphic Overlay Styling for Pills/Badges/Buttons
+
+  New Step [glass-ui-1] — Add a reusable glassmorphic style treatment to the Section 4.5 design system: semi-transparent background (low-opacity fill) combined with backdrop-filter: blur(Npx), and a subtle 1px border/highlight for edge definition against varied card backgrounds — the frosted, translucent look used for overlay UI in apps like Instagram Reels. Apply this treatment to all pill/badge/button-style overlay elements sitting on top of feed cards: the "Get Directions" badge, the category label, and the restaurant name/image clickable unit. Exact blur radius, opacity, and border values are left to implementation to tune visually — expect this to need follow-up refinement passes.
+
+--- (end of addition: glassmorphic overlay styling for pills/badges/buttons)
+
+Addition: Approximation Symbol on Get Directions Time
+
+  New Step [approx-symbol-1] — In the "Get Directions" badge, add a squiggly equals sign (≈) immediately before the time expression, to visually convey that the time is an estimate, not exact (e.g. "🚗 Get Directions · ≈ 3 min"). Keep "≈" and the time value (e.g. "3 min") glued together as one non-breaking unit (e.g. wrapped together with white-space: nowrap or joined by a non-breaking space) so that if the badge's text wraps across two lines, the ≈ stays attached to the time expression it modifies rather than being stranded alone on the line above it.
+
+--- (end of addition: approximation symbol on get directions time)
+
+Addition: Auto-Hide Safari Bottom Bar on Scroll
+
+  New Step [safari-chrome-1] — Investigate the feed's current scroll container structure. If the feed uses a nested scrollable div (overflow-y: scroll on an inner container) while html/body has overflow: hidden — a common PWA app-shell pattern — this prevents Safari's native auto-hide-toolbar-on-scroll behavior, since that behavior is tied to the actual document/window scroll, not a nested container's scroll. Restructure so the feed's scroll happens on the document/window itself (while preserving the existing scroll-snap card-by-card behavior), giving Safari's native chrome-hiding the scroll signal it needs. Note: this is a native Safari heuristic, not something directly controllable via a public web API — restructuring the scroll container gives it the best chance of working correctly but cannot fully guarantee Safari's behavior in all cases.
+
+--- (end of addition: auto-hide safari bottom bar on scroll)

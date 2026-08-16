@@ -278,3 +278,29 @@ Addition: Auto-Hide Safari Bottom Bar on Scroll
   New Step [safari-chrome-1] — Investigate the feed's current scroll container structure. If the feed uses a nested scrollable div (overflow-y: scroll on an inner container) while html/body has overflow: hidden — a common PWA app-shell pattern — this prevents Safari's native auto-hide-toolbar-on-scroll behavior, since that behavior is tied to the actual document/window scroll, not a nested container's scroll. Restructure so the feed's scroll happens on the document/window itself (while preserving the existing scroll-snap card-by-card behavior), giving Safari's native chrome-hiding the scroll signal it needs. Note: this is a native Safari heuristic, not something directly controllable via a public web API — restructuring the scroll container gives it the best chance of working correctly but cannot fully guarantee Safari's behavior in all cases.
 
 --- (end of addition: auto-hide safari bottom bar on scroll)
+
+Addition: Top Navigation Bar (Menu, Filter, Search)
+
+  New Step [navbar-1] — Add a persistent top navigation bar to the Feed Screen, styled per the established design system (Section 4.5) and the glassmorphic treatment from glass-ui-1 for visual consistency with the overlay UI already sitting on top of reel content. Layout: a hamburger menu button (three horizontal lines) at the far left; a filter button and a search button (magnifying glass icon) at the far right, consecutive to each other and evenly spaced — one gap between filter and search, one gap between search and the screen edge, matching spacing.
+
+  New Step [navbar-2] — Build a slide-in sidebar triggered by the hamburger button: enters from the left edge, occupies 85% of screen width, leaving a 15% sliver of the underlying feed visible on the right. Mostly empty for now — place the two existing monitoring pills (location coordinates, item/scroll load count) at the top of the sidebar; this is their permanent home going forward (remove them from wherever they currently render on the feed card itself, per restore-debug-pills-1).
+
+  New Step [navbar-3] — Make the sidebar dismissible three ways: (1) swipe gesture on the sidebar itself, (2) tapping the 15% visible sliver of underlying content (not the sidebar itself) — this area should have a touchable-opacity feel (slight dimming/response on tap), and (3) an explicit exit/close button in the top-right corner of the sidebar.
+
+  New Step [navbar-4] — Wire the filter button to open/toggle a placeholder state — no actual filtering functionality yet, matching the app's current no-filter-UI MVP scope. Button exists and is visually functional (tappable, shows some empty/placeholder state) but has no real behavior.
+
+  New Step [navbar-5] — Wire the search button (magnifying glass icon) to the same placeholder treatment as navbar-4 — visually present and tappable, no real search functionality yet.
+
+--- (end of addition: top navigation bar)
+
+Addition: Fix Feed Offset Glitch During Safari Toolbar Show/Hide
+
+  New Step [safari-offset-fix-1] — Fix the visual glitch where the reel/card layout briefly appears offset before snapping back into correct position whenever Safari's toolbar minimizes or reappears during scroll. This is very likely caused by the feed's card heights being sized with a static viewport unit (100vh) rather than a dynamic one — when Safari's toolbar shows/hides, the visual viewport height changes, and a static vh value doesn't update to match until a reflow/snap forces it, producing the visible jump. Replace static vh sizing on the full-height snap card containers with dynamic viewport units (100dvh) where supported, and/or listen to the visualViewport resize event to adjust sizing smoothly instead of only correcting after the scroll-snap settles. This builds directly on the document-level scroll restructuring done in safari-chrome-1.
+
+--- (end of addition: fix feed offset glitch during safari toolbar show/hide)
+
+Addition: Approximation Symbol on Prices
+
+  New Step [approx-price-1] — On both the Feed Screen (reel cards) and the Restaurant Menu Screen (restaurant/[id], the cumulative menu view), add a squiggly equals sign (≈) immediately before the dollar sign on every price display (e.g. "≈$14"), in the same font as the price text itself, to indicate prices are approximate. Apply consistently everywhere a price renders in both screens.
+
+--- (end of addition: approximation symbol on prices)

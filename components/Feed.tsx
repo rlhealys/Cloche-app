@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import FeedCard from "./FeedCard";
 import LoadingIndicator from "./LoadingIndicator";
 import EmptyState from "./EmptyState";
+import TopNavBar from "./TopNavBar";
+import Sidebar from "./Sidebar";
 import { getFeedItems } from "@/lib/queries";
 import type { ConfirmedMenuItem, SortMode } from "@/types";
 
@@ -22,6 +24,9 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
   const [items, setItems] = useState<ConfirmedMenuItem[] | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadMoreFailed, setLoadMoreFailed] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   // Refs, not state, so loadMore always reads live values instead of a
   // snapshot captured in a stale closure — a concurrent/duplicate observer
@@ -115,6 +120,20 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
   if (!coords || items === null) {
     return (
       <main className="flex h-dvh w-full flex-col items-center justify-center gap-4 bg-parchment px-8">
+        <TopNavBar
+          menuOpen={isSidebarOpen}
+          onMenuClick={() => setIsSidebarOpen((v) => !v)}
+          filterOpen={isFilterOpen}
+          onFilterClick={() => setIsFilterOpen((v) => !v)}
+          searchOpen={isSearchOpen}
+          onSearchClick={() => setIsSearchOpen((v) => !v)}
+        />
+        <Sidebar
+          open={isSidebarOpen}
+          coords={coords}
+          itemCount={items?.length ?? null}
+          onClose={() => setIsSidebarOpen(false)}
+        />
         <LoadingIndicator />
         {loadMoreFailed && (
           <button
@@ -131,6 +150,20 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
   if (items.length === 0) {
     return (
       <main className="flex h-dvh w-full items-center justify-center bg-parchment px-8">
+        <TopNavBar
+          menuOpen={isSidebarOpen}
+          onMenuClick={() => setIsSidebarOpen((v) => !v)}
+          filterOpen={isFilterOpen}
+          onFilterClick={() => setIsFilterOpen((v) => !v)}
+          searchOpen={isSearchOpen}
+          onSearchClick={() => setIsSearchOpen((v) => !v)}
+        />
+        <Sidebar
+          open={isSidebarOpen}
+          coords={coords}
+          itemCount={items?.length ?? null}
+          onClose={() => setIsSidebarOpen(false)}
+        />
         <EmptyState message="No dishes to show yet — check back soon." />
       </main>
     );
@@ -138,6 +171,20 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
 
   return (
     <main className="w-full bg-parchment">
+      <TopNavBar
+        menuOpen={isSidebarOpen}
+        onMenuClick={() => setIsSidebarOpen((v) => !v)}
+        filterOpen={isFilterOpen}
+        onFilterClick={() => setIsFilterOpen((v) => !v)}
+        searchOpen={isSearchOpen}
+        onSearchClick={() => setIsSearchOpen((v) => !v)}
+      />
+      <Sidebar
+        open={isSidebarOpen}
+        coords={coords}
+        itemCount={items.length}
+        onClose={() => setIsSidebarOpen(false)}
+      />
       {items.map((item, index) => (
         <section key={item.id} className="relative h-dvh w-full snap-start snap-always">
           <FeedCard item={item} userLat={coords.lat} userLng={coords.lng} />
@@ -146,14 +193,6 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
           )}
         </section>
       ))}
-      <div className="fixed top-4 right-4 z-50 flex flex-col items-end gap-2">
-        <div className="font-utility rounded-full border border-ink/15 bg-parchment/95 px-3 py-1.5 text-xs tracking-widest text-ink/70 uppercase shadow-sm">
-          {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
-        </div>
-        <div className="font-utility rounded-full border border-ink/15 bg-parchment/95 px-3 py-1.5 text-xs tracking-widest text-ink/70 uppercase shadow-sm">
-          {items.length} loaded
-        </div>
-      </div>
 
       {isLoadingMore && (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full border border-ink/15 bg-parchment/95 px-3 py-1.5 shadow-sm">

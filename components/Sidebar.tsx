@@ -5,7 +5,17 @@ import { useRef } from "react";
 // Mostly empty for now (New Step [navbar-2]) — just the two monitoring pills
 // at the top. Dismissible three ways (New Step [navbar-3]): swiping the
 // sidebar itself, tapping the visible feed sliver to its right, or the close
-// button below. (The hamburger button also toggles it, from navbar-2.)
+// button below.
+//
+// Stacking priority: the sidebar sits above the whole reel screen — including
+// TopNavBar — in both z-index and touch handling, per the "sidebar takes
+// touch/visual priority over the rest of the screen" requirement. Its z-[60]
+// beats TopNavBar's z-50, so wherever the two geometrically overlap (the
+// hamburger and filter buttons, both within the sidebar's left-85% span),
+// the opaque sidebar covers them and intercepts the touch — they're not
+// independently clickable while open. The sliver backdrop below stays at
+// z-40 (under TopNavBar) since it only spans the right 15%, where the search
+// button lives and should stay reachable.
 const SWIPE_DISMISS_THRESHOLD_PX = 60;
 
 export default function Sidebar({
@@ -34,13 +44,15 @@ export default function Sidebar({
 
   return (
     <>
-      {/* The visible 15% sliver of feed to the right of the sidebar — tapping
-          it dismisses the sidebar, with a brief press-state dim for feedback. */}
+      {/* The visible 15% sliver of feed to the right of the sidebar — shaded
+          (translucent, feed still visible through it) whenever the sidebar
+          is open, to emphasize the sidebar's presence; deepens slightly on
+          press, and tapping it dismisses the sidebar. */}
       <div
         aria-hidden={!open}
         onClick={onClose}
-        className={`fixed inset-y-0 right-0 z-40 w-[15%] bg-transparent transition-colors duration-150 active:bg-ink/10 ${
-          open ? "pointer-events-auto" : "pointer-events-none"
+        className={`fixed inset-y-0 right-0 z-40 w-[15%] transition-colors duration-300 ease-out ${
+          open ? "pointer-events-auto bg-ink/20 active:bg-ink/30" : "pointer-events-none bg-transparent"
         }`}
       />
 
@@ -48,7 +60,7 @@ export default function Sidebar({
         aria-hidden={!open}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        className={`fixed inset-y-0 left-0 z-40 w-[85%] border-r border-ink/15 bg-parchment shadow-lg transition-transform duration-300 ease-out ${
+        className={`fixed inset-y-0 left-0 z-[60] w-[85%] border-r border-ink/15 bg-parchment shadow-lg transition-transform duration-300 ease-out ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >

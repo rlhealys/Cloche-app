@@ -3,19 +3,16 @@
 import { useRef } from "react";
 
 // Mostly empty for now (New Step [navbar-2]) — just the two monitoring pills
-// at the top. Dismissible three ways (New Step [navbar-3]): swiping the
-// sidebar itself, tapping the visible feed sliver to its right, or the close
-// button below.
+// at the top. Dismissible: swiping the sidebar itself, tapping the visible
+// feed sliver to its right, or the hamburger button in TopNavBar (which
+// stays visible above the sidebar specifically to serve as its close
+// control — see TopNavBar's z-[70] vs this sidebar's z-[60]).
 //
-// Stacking priority: the sidebar sits above the whole reel screen — including
-// TopNavBar — in both z-index and touch handling, per the "sidebar takes
-// touch/visual priority over the rest of the screen" requirement. Its z-[60]
-// beats TopNavBar's z-50, so wherever the two geometrically overlap (the
-// hamburger and filter buttons, both within the sidebar's left-85% span),
-// the opaque sidebar covers them and intercepts the touch — they're not
-// independently clickable while open. The sliver backdrop below stays at
-// z-40 (under TopNavBar) since it only spans the right 15%, where the search
-// button lives and should stay reachable.
+// Stacking priority: the sidebar sits above the rest of the reel screen —
+// including the filter/search buttons, which TopNavBar hides outright while
+// the sidebar is open — in both z-index and touch handling. The sliver
+// backdrop below stays at z-40 (under the sidebar) since it only spans the
+// right 15%, the visible-feed strip the sidebar doesn't cover.
 const SWIPE_DISMISS_THRESHOLD_PX = 60;
 
 export default function Sidebar({
@@ -64,27 +61,6 @@ export default function Sidebar({
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <button
-          type="button"
-          aria-label="Close menu"
-          onClick={onClose}
-          className="glass-chip absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full text-ink/70 shadow-sm transition-colors hover:text-accent"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-5 w-5"
-            aria-hidden="true"
-          >
-            <line x1="6" y1="6" x2="18" y2="18" />
-            <line x1="18" y1="6" x2="6" y2="18" />
-          </svg>
-        </button>
-
         <div className="flex flex-col items-start gap-2 px-6 pt-20">
           {coords && (
             <div className="font-utility rounded-full border border-ink/15 bg-parchment/95 px-3 py-1.5 text-xs tracking-widest text-ink/70 uppercase shadow-sm">

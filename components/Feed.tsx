@@ -95,6 +95,27 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
     };
   }, []);
 
+  // Even with 100dvh (already in use on the snap sections below), Safari can
+  // still show a brief offset/glitch while its toolbar animates in/out — the
+  // dvh recalculation lags a frame or two behind the live visual viewport,
+  // only catching up once the scroll-snap settles. Tracking
+  // window.visualViewport directly and driving a CSS var from it lets the
+  // section height follow the real-time viewport through that transition
+  // instead of waiting on a reflow. Falls back to 100dvh (see className
+  // below) wherever visualViewport isn't available.
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const updateHeight = () => {
+      document.documentElement.style.setProperty("--app-vh", `${viewport.height}px`);
+    };
+
+    updateHeight();
+    viewport.addEventListener("resize", updateHeight);
+    return () => viewport.removeEventListener("resize", updateHeight);
+  }, []);
+
   // Request a real geolocation fix, then fetch the first batch against it.
   // On denial/timeout/unavailability, coordsRef/coords are simply never
   // set, so the render below stays on the loading state indefinitely —
@@ -186,7 +207,10 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
         onClose={() => setIsSidebarOpen(false)}
       />
       {items.map((item, index) => (
-        <section key={item.id} className="relative h-dvh w-full snap-start snap-always">
+        <section
+          key={item.id}
+          className="relative h-[var(--app-vh,100dvh)] w-full snap-start snap-always"
+        >
           <FeedCard item={item} userLat={coords.lat} userLng={coords.lng} />
           {index === items.length - PREFETCH_THRESHOLD && (
             <div ref={sentinelRef} className="pointer-events-none absolute bottom-0 h-px w-px" />

@@ -81,75 +81,6 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
     [loadMore]
   );
 
-  // Scroll-snap must live on the actual scrolling element for Safari to tie
-  // its native toolbar auto-hide to it. Previously that was an inner h-dvh
-  // div with its own overflow-y-scroll, which kept the document itself from
-  // ever overflowing/scrolling — invisible to that heuristic. Scoped to this
-  // component's lifecycle (not globals.css/layout.tsx) since /restaurant/[id]
-  // shares the same html/body and must stay a plain, non-snapping scroll.
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.add("snap-y", "snap-mandatory", "overscroll-y-contain");
-    return () => {
-      root.classList.remove("snap-y", "snap-mandatory", "overscroll-y-contain");
-    };
-  }, []);
-
-  // Even with 100dvh (already in use on the snap sections below), Safari can
-  // still show a brief offset/glitch while its toolbar animates in/out — the
-  // dvh recalculation lags a frame or two behind the live visual viewport,
-  // only catching up once the scroll-snap settles. Tracking
-  // window.visualViewport directly and driving a CSS var from it lets the
-  // section height follow the real-time viewport through that transition
-  // instead of waiting on a reflow. Falls back to 100dvh (see className
-  // below) wherever visualViewport isn't available.
-  //
-  // That alone (safari-offset-fix-1) still left a residual jump: the
-  // toolbar's show/hide is an animated transition, but scroll-snap forces an
-  // instant recompute of the snap position on every intermediate resize
-  // event, fighting the still-changing height. So while a resize is active,
-  // scroll-snap-type is dropped from the root entirely (removing snap-y, not
-  // just snap-mandatory, so it reverts fully to `none` rather than falling
-  // back to Tailwind's default `proximity` strictness) and only restored
-  // once resize events go quiet for a short debounce window — by which point
-  // the CSS transition below has already finished animating the height, so
-  // there's nothing left mid-flight for snap to fight when it re-engages.
-  // The height write itself is also coalesced to once per animation frame
-  // rather than once per (many) intermediate resize event.
-  useEffect(() => {
-    const viewport = window.visualViewport;
-    if (!viewport) return;
-
-    const root = document.documentElement;
-    const RESIZE_QUIET_MS = 180;
-
-    let rafId: number | null = null;
-    let quietTimeout: ReturnType<typeof setTimeout> | undefined;
-
-    const applyHeight = () => {
-      rafId = null;
-      root.style.setProperty("--app-vh", `${viewport.height}px`);
-    };
-
-    const handleResize = () => {
-      if (rafId === null) rafId = requestAnimationFrame(applyHeight);
-
-      root.classList.remove("snap-y", "snap-mandatory");
-      if (quietTimeout) clearTimeout(quietTimeout);
-      quietTimeout = setTimeout(() => {
-        root.classList.add("snap-y", "snap-mandatory");
-      }, RESIZE_QUIET_MS);
-    };
-
-    applyHeight();
-    viewport.addEventListener("resize", handleResize);
-    return () => {
-      viewport.removeEventListener("resize", handleResize);
-      if (rafId !== null) cancelAnimationFrame(rafId);
-      if (quietTimeout) clearTimeout(quietTimeout);
-    };
-  }, []);
-
   // Request a real geolocation fix, then fetch the first batch against it.
   // On denial/timeout/unavailability, coordsRef/coords are simply never
   // set, so the render below stays on the loading state indefinitely —
@@ -225,7 +156,7 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
   }
 
   return (
-    <main className="w-full bg-parchment">
+    <main className="h-dvh w-full snap-y snap-mandatory overflow-y-scroll overscroll-y-contain bg-parchment">
       <TopNavBar
         menuOpen={isSidebarOpen}
         onMenuClick={() => setIsSidebarOpen((v) => !v)}
@@ -241,10 +172,7 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
         onClose={() => setIsSidebarOpen(false)}
       />
       {items.map((item, index) => (
-        <section
-          key={item.id}
-          className="relative h-[var(--app-vh,100dvh)] w-full snap-start snap-always transition-[height] duration-150 ease-out"
-        >
+        <section key={item.id} className="relative h-dvh w-full snap-start snap-always">
           <FeedCard item={item} userLat={coords.lat} userLng={coords.lng} />
           {index === items.length - PREFETCH_THRESHOLD && (
             <div ref={sentinelRef} className="pointer-events-none absolute bottom-0 h-px w-px" />

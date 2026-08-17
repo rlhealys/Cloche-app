@@ -273,11 +273,6 @@ Addition: Approximation Symbol on Get Directions Time
 
 --- (end of addition: approximation symbol on get directions time)
 
-Addition: Auto-Hide Safari Bottom Bar on Scroll
-
-  New Step [safari-chrome-1] — Investigate the feed's current scroll container structure. If the feed uses a nested scrollable div (overflow-y: scroll on an inner container) while html/body has overflow: hidden — a common PWA app-shell pattern — this prevents Safari's native auto-hide-toolbar-on-scroll behavior, since that behavior is tied to the actual document/window scroll, not a nested container's scroll. Restructure so the feed's scroll happens on the document/window itself (while preserving the existing scroll-snap card-by-card behavior), giving Safari's native chrome-hiding the scroll signal it needs. Note: this is a native Safari heuristic, not something directly controllable via a public web API — restructuring the scroll container gives it the best chance of working correctly but cannot fully guarantee Safari's behavior in all cases.
-
---- (end of addition: auto-hide safari bottom bar on scroll)
 
 Addition: Top Navigation Bar (Menu, Filter, Search)
 
@@ -293,16 +288,16 @@ Addition: Top Navigation Bar (Menu, Filter, Search)
 
 --- (end of addition: top navigation bar)
 
-Addition: Fix Feed Offset Glitch During Safari Toolbar Show/Hide
-
-  New Step [safari-offset-fix-1] — Fix the visual glitch where the reel/card layout briefly appears offset before snapping back into correct position whenever Safari's toolbar minimizes or reappears during scroll. This is very likely caused by the feed's card heights being sized with a static viewport unit (100vh) rather than a dynamic one — when Safari's toolbar shows/hides, the visual viewport height changes, and a static vh value doesn't update to match until a reflow/snap forces it, producing the visible jump. Replace static vh sizing on the full-height snap card containers with dynamic viewport units (100dvh) where supported, and/or listen to the visualViewport resize event to adjust sizing smoothly instead of only correcting after the scroll-snap settles. This builds directly on the document-level scroll restructuring done in safari-chrome-1.
-
-  New Step [safari-offset-fix-2] — The dvh/visualViewport approach from safari-offset-fix-1 reduced but did not eliminate the jump; the toolbar's own show/hide is an animated transition, while the layout's resize to the new dvh value happens instantly, so the two can visibly fall out of sync mid-transition. Try, in combination: (1) temporarily disable scroll-snap-type on the feed container while a visualViewport resize is actively in progress, re-enabling it only after resize events have stopped firing for a short debounce window (e.g. ~150–200ms), so the browser isn't forced to recompute snap position mid-resize; (2) debounce/throttle the visualViewport resize handler itself so it doesn't fire a layout recalculation on every intermediate frame of the toolbar's animation; (3) add a short CSS transition on the affected height/transform property so any necessary adjustment animates smoothly rather than snapping instantly. This is iterative, best-effort tuning against a native Safari behavior that isn't fully controllable via public web APIs — the goal is visibly smoother, not necessarily perfect.
-
---- (end of addition: fix feed offset glitch during safari toolbar show/hide)
-
 Addition: Approximation Symbol on Prices
 
   New Step [approx-price-1] — On both the Feed Screen (reel cards) and the Restaurant Menu Screen (restaurant/[id], the cumulative menu view), add a squiggly equals sign (≈) immediately before the dollar sign on every price display (e.g. "≈$14"), in the same font as the price text itself, to indicate prices are approximate. Apply consistently everywhere a price renders in both screens.
 
 --- (end of addition: approximation symbol on prices)
+
+Addition: Pull-to-Refresh on First Reel
+
+  New Step [pull-refresh-1] — Detect a downward drag (finger swipe down / pull gesture, i.e. attempting to scroll up past the top) while the user is positioned on the very first card of the feed. This is the standard reel-app pull-to-refresh trigger (Instagram/TikTok-style) — it should only activate when already at the top of the feed, not from any other scroll position.
+
+  New Step [pull-refresh-2] — On a successful pull-to-refresh trigger, regenerate the session's shuffle seed and refetch page 1 fresh — re-running the tiered-shuffle logic with new randomization within each tier — and reset pagination state back to the start. Include a simple visual loading affordance during the refresh (exact treatment left to implementation, consistent with the existing design system).
+
+--- (end of addition: pull-to-refresh on first reel)

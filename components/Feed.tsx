@@ -6,7 +6,7 @@ import LoadingIndicator from "./LoadingIndicator";
 import EmptyState from "./EmptyState";
 import TopNavBar from "./TopNavBar";
 import Sidebar from "./Sidebar";
-import { getFeedItems } from "@/lib/queries";
+import { generateFeedSeed, getFeedItems } from "@/lib/queries";
 import type { ConfirmedMenuItem, SortMode } from "@/types";
 
 // Matches Section 5.1's infinite-scroll batch size.
@@ -14,6 +14,11 @@ const BATCH_SIZE = 20;
 // Start loading the next batch this many cards before the end, so the
 // fetch has time to land before the user actually reaches it.
 const PREFETCH_THRESHOLD = 3;
+// Standard reel-app (Instagram/TikTok-style) pull-to-refresh distance — how
+// far the finger must travel downward, while already pinned to the top of
+// the feed, before the gesture counts as a refresh request rather than an
+// incidental drag.
+const PULL_TRIGGER_THRESHOLD_PX = 80;
 
 export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
   // Real device coordinates only — null until navigator.geolocation resolves.
@@ -24,6 +29,12 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
   const [items, setItems] = useState<ConfirmedMenuItem[] | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadMoreFailed, setLoadMoreFailed] = useState(false);
+  // Starts as the seed passed down from the page load, but a pull-to-refresh
+  // (below) regenerates it — held in state rather than re-read from the
+  // `seed` prop so paginated loadMore calls after a refresh keep using the
+  // new shuffle instead of drifting back to the original one.
+  const [activeSeed, setActiveSeed] = useState(seed);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -52,7 +63,7 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
     const { lat, lng } = coordsRef.current;
 
     try {
-      const next = await getFeedItems(sort, lat, lng, offset, BATCH_SIZE, seed);
+      const next = await getFeedItems(sort, lat, lng, offset, BATCH_SIZE, activeSeed);
 
       offsetRef.current = offset + next.length;
       hasMoreRef.current = next.length === BATCH_SIZE;
@@ -66,7 +77,36 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
       loadingRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [sort, seed]);
+  }, [sort, activeSeed]);
+
+  // Pull-to-refresh (see the touch handlers below): re-shuffles by drawing a
+  // fresh seed and re-fetching page 1 from offset 0, replacing `items`
+  // outright rather than appending. Shares `loadingRef` with loadMore so an
+  // in-flight pagination fetch and a refresh can't race each other.
+  const refreshFeed = useCallback(async () => {
+    if (loadingRef.current || !coordsRef.current) return;
+    loadingRef.current = true;
+    setIsRefreshing(true);
+    setLoadMoreFailed(false);
+
+    const newSeed = generateFeedSeed();
+    const { lat, lng } = coordsRef.current;
+
+    try {
+      const next = await getFeedItems(sort, lat, lng, 0, BATCH_SIZE, newSeed);
+
+      offsetRef.current = next.length;
+      hasMoreRef.current = next.length === BATCH_SIZE;
+      setActiveSeed(newSeed);
+      setItems(next);
+    } catch (error) {
+      console.error(error);
+      setLoadMoreFailed(true);
+    } finally {
+      loadingRef.current = false;
+      setIsRefreshing(false);
+    }
+  }, [sort]);
 
   const sentinelRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -80,6 +120,37 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
     },
     [loadMore]
   );
+
+  // Detects the pull-to-refresh gesture: a downward drag while already at
+  // the very top of the feed (scrollTop 0 — with every card sized h-dvh and
+  // snap-start/snap-mandatory on the container, scrollTop 0 is exactly the
+  // first card, so no separate "which card is visible" check is needed).
+  // overscroll-y-contain on the scroll container (see className below)
+  // blocks the native rubber-band bounce, so scrollTop stays pinned at 0 for
+  // the whole gesture — a touch listener, not a scroll listener, is what
+  // actually detects the pull.
+  const touchStartYRef = useRef<number | null>(null);
+  const pullTriggeredRef = useRef(false);
+
+  const handleFeedTouchStart = (e: React.TouchEvent<HTMLElement>) => {
+    const atTop = e.currentTarget.scrollTop <= 0;
+    touchStartYRef.current = atTop ? e.touches[0].clientY : null;
+    pullTriggeredRef.current = false;
+  };
+
+  const handleFeedTouchMove = (e: React.TouchEvent<HTMLElement>) => {
+    if (touchStartYRef.current === null || pullTriggeredRef.current) return;
+    const deltaY = e.touches[0].clientY - touchStartYRef.current;
+    if (deltaY > PULL_TRIGGER_THRESHOLD_PX) {
+      pullTriggeredRef.current = true;
+      refreshFeed();
+    }
+  };
+
+  const handleFeedTouchEnd = () => {
+    touchStartYRef.current = null;
+    pullTriggeredRef.current = false;
+  };
 
   // Request a real geolocation fix, then fetch the first batch against it.
   // On denial/timeout/unavailability, coordsRef/coords are simply never
@@ -156,7 +227,12 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
   }
 
   return (
-    <main className="h-dvh w-full snap-y snap-mandatory overflow-y-scroll overscroll-y-contain bg-parchment">
+    <main
+      className="h-dvh w-full snap-y snap-mandatory overflow-y-scroll overscroll-y-contain bg-parchment"
+      onTouchStart={handleFeedTouchStart}
+      onTouchMove={handleFeedTouchMove}
+      onTouchEnd={handleFeedTouchEnd}
+    >
       <TopNavBar
         menuOpen={isSidebarOpen}
         onMenuClick={() => setIsSidebarOpen((v) => !v)}
@@ -171,6 +247,11 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
         itemCount={items.length}
         onClose={() => setIsSidebarOpen(false)}
       />
+      {isRefreshing && (
+        <div className="fixed top-20 left-1/2 z-50 -translate-x-1/2 rounded-full border border-ink/15 bg-parchment/95 px-3 py-1.5 shadow-sm">
+          <LoadingIndicator />
+        </div>
+      )}
       {items.map((item, index) => (
         <section key={item.id} className="relative h-dvh w-full snap-start snap-always">
           <FeedCard item={item} userLat={coords.lat} userLng={coords.lng} />

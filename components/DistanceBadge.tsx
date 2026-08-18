@@ -1,4 +1,5 @@
 import { estimateMinutesAway, haversineDistanceMiles } from "@/lib/distance";
+import { appendPendingReview } from "@/lib/pendingReviews";
 
 // No origin param — Google Maps uses the device's own current location as
 // the starting point.
@@ -17,6 +18,7 @@ export default function DistanceBadge({
   lat,
   lng,
   placeId = null,
+  itemId,
   restaurantId,
   restaurantName,
 }: {
@@ -25,6 +27,7 @@ export default function DistanceBadge({
   lat: number;
   lng: number;
   placeId?: string | null;
+  itemId: string;
   restaurantId?: string;
   restaurantName?: string;
 }) {
@@ -47,7 +50,10 @@ export default function DistanceBadge({
   return (
     <a
       href={directionsUrl}
-      onClick={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        appendPendingReview(itemId).catch((error) => console.error(error));
+      }}
       className="glass-chip font-utility absolute bottom-10 left-1/2 inline-flex w-fit -translate-x-1/2 items-center gap-2.5 rounded-full px-5 py-2.5 text-sm tracking-wide text-ink/70 uppercase shadow-sm transition-colors hover:text-accent"
     >
       <svg

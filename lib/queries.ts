@@ -25,13 +25,30 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-function shuffleWithRandom<T>(items: T[], random: () => number): T[] {
-  const result = [...items];
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
+// Soft upvote weighting (upvotes-4): a dish with more upvotes gets a higher
+// statistical chance of landing earlier within its own distance tier, but
+// this is not a hard sort by upvote_count — a 0-upvote item can still land
+// ahead of a heavily-upvoted one. log(1 + n) keeps the effect soft and
+// diminishing rather than letting a runaway-popular dish dominate its tier.
+function upvoteWeight(upvoteCount: number): number {
+  return 1 + Math.log(1 + upvoteCount);
+}
+
+// Weighted shuffle without replacement (Efraimidis-Spirakis): each item
+// draws a key = random()^(1/weight), then items are ordered by key
+// descending. A higher weight pushes the key closer to 1 on average, so
+// higher-weight items are more likely (not guaranteed) to sort earlier —
+// exactly the "soft weighting" this step calls for, and it stays
+// deterministic/reproducible from the same seeded `random`.
+function weightedShuffleWithRandom<T>(
+  items: T[],
+  weightOf: (item: T) => number,
+  random: () => number
+): T[] {
+  return items
+    .map((item) => ({ item, key: Math.pow(random(), 1 / weightOf(item)) }))
+    .sort((a, b) => b.key - a.key)
+    .map(({ item }) => item);
 }
 
 // A caller that wants to reuse a shuffle across paginated calls (see the
@@ -83,7 +100,9 @@ export async function getFeedItems(
     }
 
     const random = mulberry32(seed);
-    const ordered = tiers.flatMap((tier) => shuffleWithRandom(tier, random));
+    const ordered = tiers.flatMap((tier) =>
+      weightedShuffleWithRandom(tier, (item) => upvoteWeight(item.upvote_count), random)
+    );
 
     return ordered.slice(offset, offset + limit);
   }
@@ -117,6 +136,24 @@ export async function upvoteMenuItem(menuItemId: string): Promise<void> {
   if (error && error.code !== "23505") {
     throw error;
   }
+}
+
+// Looks up a dish's name for the post-directions review banner (upvotes-8).
+// Returns null (rather than throwing) if the item's gone or no longer
+// confirmed — a stale pendingReviews entry pointing at it should just not
+// surface a banner, not break the feed.
+export async function getMenuItemName(menuItemId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("confirmed_menu_items")
+    .select("name")
+    .eq("id", menuItemId)
+    .maybeSingle();
+
+  if (error) {
+    console.error(error);
+    return null;
+  }
+  return data?.name ?? null;
 }
 
 export async function getRestaurantMenu(

@@ -6,7 +6,9 @@ import LoadingIndicator from "./LoadingIndicator";
 import EmptyState from "./EmptyState";
 import TopNavBar from "./TopNavBar";
 import Sidebar from "./Sidebar";
+import PendingReviewBanner from "./PendingReviewBanner";
 import { generateFeedSeed, getFeedItems } from "@/lib/queries";
+import { prunePendingReviews } from "@/lib/pendingReviews";
 import type { ConfirmedMenuItem, SortMode } from "@/types";
 
 // Matches Section 5.1's infinite-scroll batch size.
@@ -174,6 +176,22 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
     );
   }, [loadMore]);
 
+  // upvotes-7: prune the pendingReviews queue (age + soft cap) on every feed
+  // mount — a fresh reload counts, since Feed remounts then — and again on
+  // every return from backgrounding via visibilitychange, since a
+  // backgrounded tab doesn't unmount/remount. Purely silent: no state here,
+  // no banner for the discard (surfacing the queue is upvotes-8).
+  useEffect(() => {
+    prunePendingReviews();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") prunePendingReviews();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
+
   if (!coords || items === null) {
     return (
       <main className="flex h-dvh w-full flex-col items-center justify-center gap-4 bg-parchment px-8">
@@ -247,6 +265,7 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
         itemCount={items.length}
         onClose={() => setIsSidebarOpen(false)}
       />
+      <PendingReviewBanner />
       {isRefreshing && (
         <div className="fixed top-20 left-1/2 z-50 -translate-x-1/2 rounded-full border border-ink/15 bg-parchment/95 px-3 py-1.5 shadow-sm">
           <LoadingIndicator />

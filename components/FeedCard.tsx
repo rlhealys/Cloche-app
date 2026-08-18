@@ -11,6 +11,13 @@ import type { ConfirmedMenuItem } from "@/types";
 // matching the standard reel-app (Instagram/TikTok-style) feel.
 const DOUBLE_TAP_MAX_INTERVAL_MS = 300;
 
+// upvotes-5: below this, upvote_count stays entirely invisible — no count,
+// ratio, or any other rendering of the raw number, ever. At/above it, a
+// single subtle "Crowd Favorite" badge appears instead (never the number
+// itself). Deliberately low so it's achievable/testable at current traffic
+// levels — revisit once real usage data exists.
+const CROWD_FAVORITE_UPVOTE_THRESHOLD = 10;
+
 export default function FeedCard({
   item,
   userLat,
@@ -27,6 +34,8 @@ export default function FeedCard({
   const [burstId, setBurstId] = useState(0);
   const [burstActive, setBurstActive] = useState(false);
   const lastTapRef = useRef(0);
+
+  const isCrowdFavorite = item.upvote_count >= CROWD_FAVORITE_UPVOTE_THRESHOLD;
 
   const handleCardClick = useCallback(() => {
     const now = Date.now();
@@ -89,10 +98,19 @@ export default function FeedCard({
         {item.name}
       </h1>
 
-      {item.category && (
-        <p className="glass-chip font-utility mt-2 inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-medium tracking-widest text-ink/70 uppercase shadow-sm">
-          {item.category}
-        </p>
+      {(item.category || isCrowdFavorite) && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {item.category && (
+            <p className="glass-chip font-utility inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-medium tracking-widest text-ink/70 uppercase shadow-sm">
+              {item.category}
+            </p>
+          )}
+          {isCrowdFavorite && (
+            <p className="glass-chip font-utility inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-medium tracking-widest text-accent uppercase shadow-sm">
+              Crowd Favorite
+            </p>
+          )}
+        </div>
       )}
 
       {item.description && (
@@ -116,6 +134,7 @@ export default function FeedCard({
         lat={item.lat}
         lng={item.lng}
         placeId={item.place_id}
+        itemId={item.id}
         restaurantId={item.restaurant_id}
         restaurantName={item.restaurant_name}
       />

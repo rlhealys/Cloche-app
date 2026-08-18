@@ -30,8 +30,16 @@ function mulberry32(seed: number): () => number {
 // this is not a hard sort by upvote_count — a 0-upvote item can still land
 // ahead of a heavily-upvoted one. log(1 + n) keeps the effect soft and
 // diminishing rather than letting a runaway-popular dish dominate its tier.
-function upvoteWeight(upvoteCount: number): number {
-  return 1 + Math.log(1 + upvoteCount);
+// Coerces a missing/undefined count to 0 rather than propagating NaN — a
+// stale confirmed_menu_items view missing the upvote_count column entirely
+// (Postgres view columns freeze at creation time; adding a column to
+// menu_items doesn't retroactively appear in a view defined with mi.* until
+// the view is re-created — see Section 5.6 of cloche-overview.md) made every
+// item's weight NaN, which silently collapsed the whole shuffle to the
+// unshuffled input order regardless of seed. This keeps the shuffle correct
+// even if that ever recurs, though the real fix is re-issuing the view.
+function upvoteWeight(upvoteCount: number | null | undefined): number {
+  return 1 + Math.log(1 + (upvoteCount ?? 0));
 }
 
 // Weighted shuffle without replacement (Efraimidis-Spirakis): each item

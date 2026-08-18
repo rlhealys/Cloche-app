@@ -4,12 +4,18 @@ import { useCallback, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import DistanceBadge from "./DistanceBadge";
-import { upvoteMenuItem } from "@/lib/queries";
+import { removeUpvote, upvoteMenuItem } from "@/lib/queries";
 import type { ConfirmedMenuItem } from "@/types";
 
 // Two taps closer together than this count as one double-tap gesture,
 // matching the standard reel-app (Instagram/TikTok-style) feel.
 const DOUBLE_TAP_MAX_INTERVAL_MS = 300;
+
+// The only icon shape used for upvoting anywhere in the app (upvote-arrow-4)
+// — no hearts or thumbs. Exported as a shared constant so upvote-arrow-6 can
+// reuse the exact same glyph for the double-tap burst and the banner's
+// affirmative action, instead of drifting into a different shape there.
+export const UPVOTE_ARROW_PATH = "M12 4l7 8h-4v8h-6v-8H5z";
 
 // upvotes-5: below this, upvote_count stays entirely invisible — no count,
 // ratio, or any other rendering of the raw number, ever. At/above it, a
@@ -22,10 +28,20 @@ export default function FeedCard({
   item,
   userLat,
   userLng,
+  upvoted,
+  onUpvotedChange,
 }: {
   item: ConfirmedMenuItem;
   userLat: number;
   userLng: number;
+  // upvote-arrow-3's shared upvotedItemIds, narrowed to this one item.
+  upvoted: boolean;
+  // Updates that shared Set in the parent (Feed.tsx). The arrow toggle below
+  // calls it optimistically, before its network call resolves; the
+  // double-tap gesture calls it only after upvoteMenuItem resolves, since
+  // its burst plays regardless of outcome but the persistent arrow should
+  // only fill once the vote is confirmed.
+  onUpvotedChange: (itemId: string, upvoted: boolean) => void;
 }) {
   // burstId is bumped on every double-tap so the burst element remounts (via
   // `key`) and replays its animation even on rapid repeat double-taps;
@@ -53,8 +69,34 @@ export default function FeedCard({
     // bursts, it just doesn't add a second row.
     setBurstId((id) => id + 1);
     setBurstActive(true);
-    upvoteMenuItem(item.id).catch((error) => console.error(error));
-  }, [item.id]);
+    // The burst itself plays unconditionally above, regardless of outcome.
+    // The shared upvotedItemIds Set (upvote-arrow-3), on the other hand,
+    // only updates once the vote is actually confirmed recorded — so the
+    // persistent on-card arrow fills in sync with reality, not with the
+    // gesture alone (upvote-arrow-6).
+    upvoteMenuItem(item.id)
+      .then(() => onUpvotedChange(item.id, true))
+      .catch((error) => console.error(error));
+  }, [item.id, onUpvotedChange]);
+
+  // upvote-arrow-5: the only interaction anywhere in the app that can
+  // remove an upvote — toggles based on the current filled/unfilled state,
+  // updating the shared upvotedItemIds Set immediately (optimistic, same as
+  // the double-tap burst above) rather than waiting on the network call.
+  const handleArrowClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const nextUpvoted = !upvoted;
+      onUpvotedChange(item.id, nextUpvoted);
+
+      if (nextUpvoted) {
+        upvoteMenuItem(item.id).catch((error) => console.error(error));
+      } else {
+        removeUpvote(item.id).catch((error) => console.error(error));
+      }
+    },
+    [upvoted, item.id, onUpvotedChange]
+  );
 
   return (
     <article
@@ -94,9 +136,31 @@ export default function FeedCard({
         </span>
       </Link>
 
-      <h1 className="font-display text-4xl leading-tight font-semibold tracking-tight">
-        {item.name}
-      </h1>
+      <div className="flex items-center gap-2">
+        <h1 className="font-display text-4xl leading-tight font-semibold tracking-tight">
+          {item.name}
+        </h1>
+        <button
+          type="button"
+          onClick={handleArrowClick}
+          aria-label={upvoted ? "Remove upvote" : "Upvote"}
+          aria-pressed={upvoted}
+          className="-m-1 flex shrink-0 items-center justify-center p-1"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill={upvoted ? "currentColor" : "none"}
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`h-6 w-6 ${upvoted ? "text-upvote" : "text-ink/25"}`}
+            aria-hidden="true"
+          >
+            <path d={UPVOTE_ARROW_PATH} />
+          </svg>
+        </button>
+      </div>
 
       {(item.category || isCrowdFavorite) && (
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -148,10 +212,10 @@ export default function FeedCard({
           <svg
             viewBox="0 0 24 24"
             fill="currentColor"
-            className="text-accent animate-upvote-burst h-28 w-28 drop-shadow-sm"
+            className="text-upvote animate-upvote-burst h-28 w-28 drop-shadow-sm"
             aria-hidden="true"
           >
-            <path d="M12 21s-6.7-4.35-9.3-8.1C1 10.1 1.3 6.7 4 5.1c2.1-1.25 4.6-.6 6 1.15C11.4 4.5 13.9 3.85 16 5.1c2.7 1.6 3 5 1.3 7.8C18.7 16.65 12 21 12 21z" />
+            <path d={UPVOTE_ARROW_PATH} />
           </svg>
         </span>
       )}

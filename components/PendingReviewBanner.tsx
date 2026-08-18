@@ -7,10 +7,18 @@ import {
   type PendingReviewEntry,
 } from "@/lib/pendingReviews";
 import { getMenuItemName, upvoteMenuItem } from "@/lib/queries";
+import { UPVOTE_ARROW_PATH } from "./FeedCard";
 
 // Surfaces the oldest still-pending "how was it" entry (upvotes-8) — never
 // more than one at a time — and wires its two actions (upvotes-9).
-export default function PendingReviewBanner() {
+export default function PendingReviewBanner({
+  onUpvotedChange,
+}: {
+  // upvote-arrow-3's shared upvotedItemIds updater (see Feed.tsx's
+  // setItemUpvoted) — called only after the vote is confirmed recorded, so
+  // the on-card arrow fills in sync with reality (upvote-arrow-6).
+  onUpvotedChange: (itemId: string, upvoted: boolean) => void;
+}) {
   const [banner, setBanner] = useState<{ entry: PendingReviewEntry; dishName: string } | null>(
     null
   );
@@ -62,17 +70,23 @@ export default function PendingReviewBanner() {
     };
   }, [trySurfaceOldestPending]);
 
-  // 👍: writes a vote (subject to the same (menu_item_id, user_id) unique
-  // constraint as the double-tap path from upvotes-1/3 — a dish already
-  // upvoted via double-tap just hits that constraint here too and is
-  // swallowed the same way) and removes the entry from the queue.
+  // Arrow (formerly 👍): writes a vote (subject to the same
+  // (menu_item_id, user_id) unique constraint as the double-tap/arrow paths
+  // from upvotes-1/3/upvote-arrow-5 — a dish already upvoted some other way
+  // just hits that constraint here too and is swallowed the same way) and
+  // removes the entry from the queue. The banner itself dismisses right
+  // away; the shared upvotedItemIds Set only updates once the vote is
+  // actually confirmed recorded, same pattern as the double-tap burst.
   const handleGood = useCallback(() => {
     if (!banner) return;
-    upvoteMenuItem(banner.entry.itemId).catch((error) => console.error(error));
+    const { itemId } = banner.entry;
+    upvoteMenuItem(itemId)
+      .then(() => onUpvotedChange(itemId, true))
+      .catch((error) => console.error(error));
     removePendingReview(banner.entry);
     bannerActiveRef.current = false;
     setBanner(null);
-  }, [banner]);
+  }, [banner, onUpvotedChange]);
 
   // ✕: removes the entry from the queue only — never writes to votes, never
   // touches upvote_count. A dismiss means "no data", not "disliked it", so
@@ -93,8 +107,15 @@ export default function PendingReviewBanner() {
     >
       <span className="truncate">How was {banner.dishName}?</span>
       <span className="flex shrink-0 items-center gap-2 text-lg leading-none">
-        <button type="button" aria-label="Good" onClick={handleGood} className="p-1">
-          👍
+        <button type="button" aria-label="Upvote" onClick={handleGood} className="p-1">
+          <svg
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className="text-upvote h-5 w-5"
+            aria-hidden="true"
+          >
+            <path d={UPVOTE_ARROW_PATH} />
+          </svg>
         </button>
         <button
           type="button"

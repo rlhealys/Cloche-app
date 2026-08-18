@@ -5,6 +5,12 @@
   --parchment: #f1e7d3;
   --ink: #2a211a;
   --accent: #b5482e;
+  /* Upvote signal color (upvote-arrow-4) — deliberately distinct from
+     --accent, since it means "you upvoted this," not the warm brand accent
+     used elsewhere. The only color the upvote arrow (and, from
+     upvote-arrow-6, the double-tap burst and banner icon) ever renders in
+     when filled. */
+  --upvote: #3f7d4f;
 }
 
 @theme inline {
@@ -13,6 +19,7 @@
   --color-parchment: var(--parchment);
   --color-ink: var(--ink);
   --color-accent: var(--accent);
+  --color-upvote: var(--upvote);
   --font-display: var(--font-display);
   --font-body: var(--font-body);
   --font-utility: var(--font-utility);

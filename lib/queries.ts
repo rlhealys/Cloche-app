@@ -138,6 +138,49 @@ export async function upvoteMenuItem(menuItemId: string): Promise<void> {
   }
 }
 
+// The only path that can undo an upvote (upvote-arrow-2) — a real deletion
+// of the vote row, not a soft flag. The AFTER DELETE trigger from
+// upvote-arrow-1 (decrement_upvote_count) is what actually decrements
+// menu_items.upvote_count; this just removes the row that trigger watches.
+export async function removeUpvote(menuItemId: string): Promise<void> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user.id;
+  if (!userId) return;
+
+  const { error } = await supabase
+    .from("votes")
+    .delete()
+    .eq("menu_item_id", menuItemId)
+    .eq("user_id", userId);
+
+  if (error) throw error;
+}
+
+// Shared per-item upvoted-state tracking (upvote-arrow-3): given a page of
+// item ids, returns the subset the current anonymous user has already
+// voted on. Meant to be called once per loaded page so callers can seed
+// their upvoted/unvoted state without a separate round trip per item.
+export async function getUserVotedItemIds(menuItemIds: string[]): Promise<Set<string>> {
+  if (menuItemIds.length === 0) return new Set();
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user.id;
+  if (!userId) return new Set();
+
+  const { data, error } = await supabase
+    .from("votes")
+    .select("menu_item_id")
+    .eq("user_id", userId)
+    .in("menu_item_id", menuItemIds);
+
+  if (error) {
+    console.error(error);
+    return new Set();
+  }
+
+  return new Set((data ?? []).map((row) => row.menu_item_id as string));
+}
+
 // Looks up a dish's name for the post-directions review banner (upvotes-8).
 // Returns null (rather than throwing) if the item's gone or no longer
 // confirmed — a stale pendingReviews entry pointing at it should just not

@@ -7,7 +7,7 @@ import EmptyState from "./EmptyState";
 import TopNavBar from "./TopNavBar";
 import Sidebar from "./Sidebar";
 import PendingReviewBanner from "./PendingReviewBanner";
-import { generateFeedSeed, getFeedItems } from "@/lib/queries";
+import { generateFeedSeed, getFeedItems, getUserVotedItemIds } from "@/lib/queries";
 import { prunePendingReviews } from "@/lib/pendingReviews";
 import type { ConfirmedMenuItem, SortMode } from "@/types";
 
@@ -40,6 +40,12 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  // upvote-arrow-3: the single source of truth for which items the current
+  // user has upvoted, seeded from the server on every page load below. The
+  // on-card arrow, the double-tap gesture, and the pending-review banner
+  // will all read from and update this in later steps (upvote-arrow-4/5/6),
+  // so an upvote registered through any one of them stays in sync everywhere.
+  const [upvotedItemIds, setUpvotedItemIds] = useState<Set<string>>(new Set());
 
   // Refs, not state, so loadMore always reads live values instead of a
   // snapshot captured in a stale closure — a concurrent/duplicate observer
@@ -54,6 +60,28 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
   const observerRef = useRef<IntersectionObserver | null>(null);
   // Mirrors `coords` state; only ever set from a real geolocation fix.
   const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
+
+  // upvote-arrow-3: folds a newly-loaded page's voted item ids into the
+  // shared set rather than replacing it, since loadMore's pages accumulate
+  // (unlike `items`, which refreshFeed replaces outright, this only ever
+  // grows — a stale id for an item no longer in `items` is harmless).
+  const recordVotedItemIds = useCallback((votedIds: Set<string>) => {
+    if (votedIds.size === 0) return;
+    setUpvotedItemIds((prev) => new Set([...prev, ...votedIds]));
+  }, []);
+
+  // upvote-arrow-5: single point where any consumer of the shared state
+  // (currently just the on-card arrow) reports a change, so the Set stays
+  // the one source of truth every reader sees updated the same way.
+  const setItemUpvoted = useCallback((itemId: string, nextUpvoted: boolean) => {
+    setUpvotedItemIds((prev) => {
+      if (prev.has(itemId) === nextUpvoted) return prev;
+      const next = new Set(prev);
+      if (nextUpvoted) next.add(itemId);
+      else next.delete(itemId);
+      return next;
+    });
+  }, []);
 
   const loadMore = useCallback(async () => {
     if (loadingRef.current || !hasMoreRef.current || !coordsRef.current) return;
@@ -71,6 +99,7 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
       hasMoreRef.current = next.length === BATCH_SIZE;
 
       setItems((prev) => [...(prev ?? []), ...next]);
+      recordVotedItemIds(await getUserVotedItemIds(next.map((item) => item.id)));
     } catch (error) {
       // Leave offsetRef/hasMoreRef untouched so the same batch can be retried.
       console.error(error);
@@ -79,7 +108,7 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
       loadingRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [sort, activeSeed]);
+  }, [sort, activeSeed, recordVotedItemIds]);
 
   // Pull-to-refresh (see the touch handlers below): re-shuffles by drawing a
   // fresh seed and re-fetching page 1 from offset 0, replacing `items`
@@ -101,6 +130,7 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
       hasMoreRef.current = next.length === BATCH_SIZE;
       setActiveSeed(newSeed);
       setItems(next);
+      recordVotedItemIds(await getUserVotedItemIds(next.map((item) => item.id)));
     } catch (error) {
       console.error(error);
       setLoadMoreFailed(true);
@@ -108,7 +138,7 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
       loadingRef.current = false;
       setIsRefreshing(false);
     }
-  }, [sort]);
+  }, [sort, recordVotedItemIds]);
 
   const sentinelRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -265,7 +295,7 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
         itemCount={items.length}
         onClose={() => setIsSidebarOpen(false)}
       />
-      <PendingReviewBanner />
+      <PendingReviewBanner onUpvotedChange={setItemUpvoted} />
       {isRefreshing && (
         <div className="fixed top-20 left-1/2 z-50 -translate-x-1/2 rounded-full border border-ink/15 bg-parchment/95 px-3 py-1.5 shadow-sm">
           <LoadingIndicator />
@@ -273,7 +303,13 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
       )}
       {items.map((item, index) => (
         <section key={item.id} className="relative h-dvh w-full snap-start snap-always">
-          <FeedCard item={item} userLat={coords.lat} userLng={coords.lng} />
+          <FeedCard
+            item={item}
+            userLat={coords.lat}
+            userLng={coords.lng}
+            upvoted={upvotedItemIds.has(item.id)}
+            onUpvotedChange={setItemUpvoted}
+          />
           {index === items.length - PREFETCH_THRESHOLD && (
             <div ref={sentinelRef} className="pointer-events-none absolute bottom-0 h-px w-px" />
           )}

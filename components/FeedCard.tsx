@@ -1,7 +1,15 @@
+"use client";
+
+import { useCallback, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import DistanceBadge from "./DistanceBadge";
+import { upvoteMenuItem } from "@/lib/queries";
 import type { ConfirmedMenuItem } from "@/types";
+
+// Two taps closer together than this count as one double-tap gesture,
+// matching the standard reel-app (Instagram/TikTok-style) feel.
+const DOUBLE_TAP_MAX_INTERVAL_MS = 300;
 
 export default function FeedCard({
   item,
@@ -12,10 +20,41 @@ export default function FeedCard({
   userLat: number;
   userLng: number;
 }) {
+  // burstId is bumped on every double-tap so the burst element remounts (via
+  // `key`) and replays its animation even on rapid repeat double-taps;
+  // burstActive controls whether it's mounted at all, cleared once the
+  // animation finishes so the node doesn't linger in the DOM indefinitely.
+  const [burstId, setBurstId] = useState(0);
+  const [burstActive, setBurstActive] = useState(false);
+  const lastTapRef = useRef(0);
+
+  const handleCardClick = useCallback(() => {
+    const now = Date.now();
+    const isDoubleTap = now - lastTapRef.current < DOUBLE_TAP_MAX_INTERVAL_MS;
+    // Reset rather than update to `now` so a fast triple-tap can't chain
+    // into a second upvote off the second+third taps.
+    lastTapRef.current = isDoubleTap ? 0 : now;
+    if (!isDoubleTap) return;
+
+    // Optimistic and immediate — the burst plays regardless of the network
+    // request's outcome, since this is meant to be a zero-friction, passive
+    // gesture, not something the user waits on. Server-side enforcement (the
+    // unique constraint from upvotes-1) is what actually decides whether the
+    // vote counts; a repeat double-tap on an already-upvoted dish still
+    // bursts, it just doesn't add a second row.
+    setBurstId((id) => id + 1);
+    setBurstActive(true);
+    upvoteMenuItem(item.id).catch((error) => console.error(error));
+  }, [item.id]);
+
   return (
-    <article className="relative mx-auto flex h-full w-full max-w-md flex-col justify-center bg-parchment px-8 py-12 text-ink">
+    <article
+      className="relative mx-auto flex h-full w-full max-w-md flex-col justify-center bg-parchment px-8 py-12 text-ink"
+      onClick={handleCardClick}
+    >
       <Link
         href={`/restaurant/${item.restaurant_id}`}
+        onClick={(e) => e.stopPropagation()}
         className="mb-6 ml-auto flex w-fit items-center gap-3 text-ink/70 transition-colors hover:text-accent"
       >
         {item.hero_image_url && (
@@ -80,6 +119,23 @@ export default function FeedCard({
         restaurantId={item.restaurant_id}
         restaurantName={item.restaurant_name}
       />
+
+      {burstActive && (
+        <span
+          key={burstId}
+          onAnimationEnd={() => setBurstActive(false)}
+          className="pointer-events-none absolute inset-0 flex items-center justify-center"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className="text-accent animate-upvote-burst h-28 w-28 drop-shadow-sm"
+            aria-hidden="true"
+          >
+            <path d="M12 21s-6.7-4.35-9.3-8.1C1 10.1 1.3 6.7 4 5.1c2.1-1.25 4.6-.6 6 1.15C11.4 4.5 13.9 3.85 16 5.1c2.7 1.6 3 5 1.3 7.8C18.7 16.65 12 21 12 21z" />
+          </svg>
+        </span>
+      )}
     </article>
   );
 }

@@ -98,6 +98,27 @@ export async function getFeedItems(
   return data ?? [];
 }
 
+// Double-tap upvoting (upvotes-3): fires on every double-tap, but only ever
+// results in one row per (menu_item_id, user_id) — enforced server-side by
+// the unique constraint from upvotes-1, not just by not-tapping-twice on the
+// client. A repeat tap on an already-upvoted dish hits that constraint
+// (Postgres code 23505) and is swallowed here rather than surfaced as an
+// error, since a double-tap is passive/zero-friction and never needs to
+// report "you already did this" back to the user.
+export async function upvoteMenuItem(menuItemId: string): Promise<void> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user.id;
+  if (!userId) return;
+
+  const { error } = await supabase
+    .from("votes")
+    .insert({ menu_item_id: menuItemId, user_id: userId });
+
+  if (error && error.code !== "23505") {
+    throw error;
+  }
+}
+
 export async function getRestaurantMenu(
   restaurantId: string
 ): Promise<ConfirmedMenuItem[]> {

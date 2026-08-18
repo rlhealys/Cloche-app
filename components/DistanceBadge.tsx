@@ -47,6 +47,7 @@ export default function DistanceBadge({
   return (
     <a
       href={directionsUrl}
+      onClick={(e) => e.stopPropagation()}
       className="glass-chip font-utility absolute bottom-10 left-1/2 inline-flex w-fit -translate-x-1/2 items-center gap-2.5 rounded-full px-5 py-2.5 text-sm tracking-wide text-ink/70 uppercase shadow-sm transition-colors hover:text-accent"
     >
       <svg

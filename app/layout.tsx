@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Work_Sans, IBM_Plex_Mono } from "next/font/google";
+import AnonymousAuthInit from "@/components/AnonymousAuthInit";
 import "./globals.css";
 
 const displayFont = Fraunces({
@@ -39,7 +40,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${displayFont.variable} ${bodyFont.variable} ${utilityFont.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <AnonymousAuthInit />
+        {children}
+      </body>
     </html>
   );
 }

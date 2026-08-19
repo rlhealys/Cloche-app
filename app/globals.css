@@ -4,7 +4,7 @@
   /* Cloche brand palette (Section 4.5) — fixed, not theme-swapped */
   --parchment: #f1e7d3;
   --ink: #2a211a;
-  --accent: #b5482e;
+  --accent: #0f7a53;
   /* Upvote signal color (upvote-arrow-4) — deliberately distinct from
      --accent, since it means "you upvoted this," not the warm brand accent
      used elsewhere. The only color the upvote arrow (and, from
@@ -40,6 +40,19 @@ body {
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
   border: 1px solid rgb(255 255 255 / 55%);
+}
+
+/* Accented variant of glass-chip (ui-refresh-2) — same frosted-glass base,
+   but tinted/bordered/glowing in --accent so the "Get Directions" badge
+   outranks the plain glass-chip pills (category, restaurant link) around it.
+   Colors derive from --accent via color-mix so they stay in sync with any
+   future token change instead of hardcoding a duplicate hex. */
+@utility glass-chip-accent {
+  background-color: color-mix(in srgb, var(--accent) 20%, transparent);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 /* Brief burst played on a double-tap upvote (upvotes-3) — a quick pop-and-

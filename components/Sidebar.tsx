@@ -9,8 +9,8 @@ import { useRef } from "react";
 // control — see TopNavBar's z-[70] vs this sidebar's z-[60]).
 //
 // Stacking priority: the sidebar sits above the rest of the reel screen —
-// including the filter/search buttons, which TopNavBar hides outright while
-// the sidebar is open — in both z-index and touch handling. The sliver
+// including the search button, which TopNavBar hides outright while the
+// sidebar is open — in both z-index and touch handling. The sliver
 // backdrop below stays at z-40 (under the sidebar) since it only spans the
 // right 15%, the visible-feed strip the sidebar doesn't cover.
 const SWIPE_DISMISS_THRESHOLD_PX = 60;

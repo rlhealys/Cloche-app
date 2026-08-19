@@ -21,6 +21,11 @@ const PREFETCH_THRESHOLD = 3;
 // the feed, before the gesture counts as a refresh request rather than an
 // incidental drag.
 const PULL_TRIGGER_THRESHOLD_PX = 80;
+// ui-refresh-5: minimum net scroll movement (in either direction) since the
+// last recorded position before the nav bar toggles — filters out the
+// sub-pixel jitter a snap-scroll settle can produce, so the bar doesn't
+// flicker when the feed is effectively stationary.
+const NAV_TOGGLE_SCROLL_THRESHOLD_PX = 12;
 
 export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
   // Real device coordinates only — null until navigator.geolocation resolves.
@@ -38,8 +43,11 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
   const [activeSeed, setActiveSeed] = useState(seed);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  // ui-refresh-5: whether the top nav bar is shown. Only ever flipped by
+  // handleFeedScroll below — TopNavBar renders its own transform/opacity
+  // transition off this, so nothing about card sizing/scroll-snap changes.
+  const [isNavVisible, setIsNavVisible] = useState(true);
   // upvote-arrow-3: the single source of truth for which items the current
   // user has upvoted, seeded from the server on every page load below. The
   // on-card arrow, the double-tap gesture, and the pending-review banner
@@ -60,6 +68,10 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
   const observerRef = useRef<IntersectionObserver | null>(null);
   // Mirrors `coords` state; only ever set from a real geolocation fix.
   const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
+  // ui-refresh-5: last scrollTop seen by handleFeedScroll, and the
+  // requestAnimationFrame id used to throttle it to at most once per frame.
+  const lastNavScrollTopRef = useRef(0);
+  const navScrollRafRef = useRef<number | null>(null);
 
   // upvote-arrow-3: folds a newly-loaded page's voted item ids into the
   // shared set rather than replacing it, since loadMore's pages accumulate
@@ -184,6 +196,40 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
     pullTriggeredRef.current = false;
   };
 
+  // ui-refresh-5: shows/hides TopNavBar based on scroll direction within the
+  // feed's own scroll container — an upward finger swipe (scrollTop
+  // increasing) hides it, a downward swipe (scrollTop decreasing) restores
+  // it. rAF-throttled to at most one direction check per animation frame
+  // (native `scroll` events can fire far more often than that during a snap
+  // animation), and gated behind NAV_TOGGLE_SCROLL_THRESHOLD_PX so small
+  // jitter around a settled snap position doesn't flicker the bar. Reads
+  // scrollTop off the event's own target only — no window/document scroll
+  // and no visualViewport involvement, so this can't interact with the
+  // native mobile browser toolbar.
+  const handleFeedScroll = useCallback((e: React.UIEvent<HTMLElement>) => {
+    const scrollTop = e.currentTarget.scrollTop;
+    if (navScrollRafRef.current !== null) return;
+
+    navScrollRafRef.current = requestAnimationFrame(() => {
+      navScrollRafRef.current = null;
+
+      if (scrollTop <= 0) {
+        setIsNavVisible(true);
+      } else {
+        const delta = scrollTop - lastNavScrollTopRef.current;
+        if (delta > NAV_TOGGLE_SCROLL_THRESHOLD_PX) setIsNavVisible(false);
+        else if (delta < -NAV_TOGGLE_SCROLL_THRESHOLD_PX) setIsNavVisible(true);
+      }
+      lastNavScrollTopRef.current = scrollTop;
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (navScrollRafRef.current !== null) cancelAnimationFrame(navScrollRafRef.current);
+    };
+  }, []);
+
   // Request a real geolocation fix, then fetch the first batch against it.
   // On denial/timeout/unavailability, coordsRef/coords are simply never
   // set, so the render below stays on the loading state indefinitely —
@@ -226,10 +272,9 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
     return (
       <main className="flex h-dvh w-full flex-col items-center justify-center gap-4 bg-parchment px-8">
         <TopNavBar
+          navVisible={isNavVisible}
           menuOpen={isSidebarOpen}
           onMenuClick={() => setIsSidebarOpen((v) => !v)}
-          filterOpen={isFilterOpen}
-          onFilterClick={() => setIsFilterOpen((v) => !v)}
           searchOpen={isSearchOpen}
           onSearchClick={() => setIsSearchOpen((v) => !v)}
         />
@@ -256,10 +301,9 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
     return (
       <main className="flex h-dvh w-full items-center justify-center bg-parchment px-8">
         <TopNavBar
+          navVisible={isNavVisible}
           menuOpen={isSidebarOpen}
           onMenuClick={() => setIsSidebarOpen((v) => !v)}
-          filterOpen={isFilterOpen}
-          onFilterClick={() => setIsFilterOpen((v) => !v)}
           searchOpen={isSearchOpen}
           onSearchClick={() => setIsSearchOpen((v) => !v)}
         />
@@ -280,12 +324,12 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
       onTouchStart={handleFeedTouchStart}
       onTouchMove={handleFeedTouchMove}
       onTouchEnd={handleFeedTouchEnd}
+      onScroll={handleFeedScroll}
     >
       <TopNavBar
+        navVisible={isNavVisible}
         menuOpen={isSidebarOpen}
         onMenuClick={() => setIsSidebarOpen((v) => !v)}
-        filterOpen={isFilterOpen}
-        onFilterClick={() => setIsFilterOpen((v) => !v)}
         searchOpen={isSearchOpen}
         onSearchClick={() => setIsSearchOpen((v) => !v)}
       />

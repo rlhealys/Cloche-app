@@ -341,3 +341,37 @@ Addition: Visible Upvote Arrow (Toggleable) + Arrow Iconography
   New Step [upvote-arrow-6] — Update the double-tap burst animation (upvotes-3) and the pending-review banner's affirmative action (upvotes-9, currently a 👍 emoji) to both use the same green filled arrow glyph from upvote-arrow-4, replacing any heart/thumb iconography, and to update the shared upvoted-state from upvote-arrow-3 so the on-card arrow reflects the fill immediately after either action succeeds. The banner's ✕ dismiss action is unaffected — it remains a plain dismiss with no icon change needed. Status: done. FeedCard.tsx's double-tap burst now renders UPVOTE_ARROW_PATH in text-upvote (green) instead of the old heart path/text-accent; its handler still plays the burst unconditionally (regardless of network outcome, per upvotes-3) but now chains onUpvotedChange(item.id, true) onto upvoteMenuItem's resolution, so the shared Set — and therefore the persistent arrow — only fills once the vote is actually confirmed recorded, not on the gesture alone. PendingReviewBanner.tsx's 👍 button is now the same SVG arrow glyph (imported from FeedCard.tsx) in text-upvote, and now takes an onUpvotedChange prop (wired from Feed.tsx's setItemUpvoted, same as upvote-arrow-5); handleGood chains onUpvotedChange(itemId, true) onto upvoteMenuItem's resolution the same way, while the banner itself still dismisses immediately as before. handleDismiss (✕) is untouched — still only removes the queue entry, no vote write, no upvotedItemIds change. Aside note (found while linting the file, not fixed — out of scope here): components/PendingReviewBanner.tsx:60 (`trySurfaceOldestPending()` called directly in the mount/visibilitychange effect, pre-existing since upvotes-8) trips eslint's react-hooks/set-state-in-effect as an error. It's not a real bug — nothing calls setState synchronously; the flagged setBanner only happens after an awaited network call — and it doesn't affect `next build`, which doesn't run this check. Worth a look if the project ever wants a clean `next lint` pass.
 
 --- (end of addition: visible upvote arrow (toggleable) + arrow iconography)
+
+Addition: Nav Bar Refresh (Accent Color, Get Directions Emphasis, Filter Removal, Bar Consolidation, Scroll Minimize)
+
+  New Step [ui-refresh-1] — Change the Section 4.5 --accent design token from its current dark red-orange to a mint green, applied everywhere it's currently used (price display's dot-leader/price text per approx-price-1, loading states). The exact shade is left to implementation, with one hard constraint: it must remain clearly legible/contrasting against the warm ivory/parchment base and white — not a light, washed-out mint that loses contrast.
+
+  New Step [ui-refresh-2] — Accentuate the "Get Directions" badge so it stands out more than the other overlay pills (category, restaurant link), while keeping its current pill shape from card-layout-3/glass-ui-1 unchanged. Use the new mint accent from ui-refresh-1 as the basis for this emphasis (e.g. a stronger fill, bolder border, or subtle shadow/glow) — exact treatment left to implementation, tuned visually.
+
+  New Step [ui-refresh-3] — Remove the filter button (navbar-4) from the nav bar entirely — delete its UI and placeholder wiring. Filtering is not part of the app's current scope.
+
+  New Step [ui-refresh-4] — Visually connect the hamburger menu button and the search button into a single shared bar/capsule (one continuous translucent glass background spanning both icons), replacing their current appearance as two separate standalone buttons — the Instagram Reels top-icon treatment. This only affects the two remaining nav bar buttons after ui-refresh-3 removes the filter button.
+
+  New Step [ui-refresh-5] — Add scroll-direction-based show/hide behavior to the top nav bar: scrolling down through the feed (an upward finger swipe) minimizes/hides the nav bar; scrolling back up (a downward swipe) restores it. This must be implemented as a lightweight transform/opacity animation on the nav bar's own fixed-position element only — it must not touch feed card sizing, height, or scroll-snap behavior in any way, and must not rely on or interact with native browser toolbar behavior (unrelated to the reverted Safari toolbar work). Debounce/throttle the scroll listener to avoid jank.
+
+--- (end of addition: nav bar refresh (accent color, get directions emphasis, filter removal, bar consolidation, scroll minimize))
+
+Addition: Search Feature
+
+  New Step [search-1] — Create a new Search Screen (e.g. app/search/page.tsx): a search input pinned near the top, styled per the established design system, TikTok-search-inspired in layout simplicity. Include an exit arrow (top-left) that navigates back to the Feed Screen.
+
+  New Step [search-2] — Wire the nav bar's search button to navigate to the Search Screen, replacing its current placeholder-only behavior from navbar-5.
+
+  New Step [search-3] — Implement live search query logic: as the user types, debounce input and query confirmed_menu_items for matches against dish name, restaurant name, and category (case-insensitive partial match), producing two grouped result sets — matching restaurants and matching menu items.
+
+  New Step [search-4] — Implement chain deduplication: when multiple restaurant rows share the same name (chain locations), collapse them into a single representative search result showing only the nearest location by distance from the user's current position. Apply the same logic to menu items belonging to a chain, so a dish available at multiple chain locations surfaces only its closest instance in results.
+
+  New Step [search-5] — Render search results TikTok-style, filling in live as the user types: a restaurants section and a menu items section, both tappable, both empty/hidden until there's a query.
+
+  New Step [search-6] — Tapping a restaurant result navigates to that restaurant's existing menu screen (restaurant/[id]). Add a top-left back arrow there (if not already present) that returns to the Search Screen specifically, not the Feed Screen.
+
+  New Step [search-7] — Create a new Menu Item Detail Screen: displays a single menu item's full card (reusing the existing FeedCard visual design) in a static, non-scrollable layout — just that one dish, no swipe/pagination. Tapping a menu item result in search navigates here. Include a top-left back arrow returning to the Search Screen.
+
+  New Step [search-8] — Confirm the full back-navigation chain works end to end: Menu Item Detail Screen or Restaurant Menu Screen → back arrow → Search Screen → exit arrow → Feed Screen.
+
+--- (end of addition: search feature)

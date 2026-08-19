@@ -1,7 +1,9 @@
+import Link from "next/link";
+
 // The menu button opens the sidebar (navbar-2/3) and — while it's open — is
 // the sidebar's own close control, so it stays visible/clickable above the
 // sidebar (z-[70] beats Sidebar's z-[60]) instead of being covered by it.
-// Search (New Step [navbar-5], a placeholder toggle only) is hidden entirely
+// Search navigates to the Search Screen (search-1/2) and is hidden entirely
 // while the sidebar is open, per "no other buttons should be clickable or
 // visible" — the sidebar has full touch/visual priority over the rest of the
 // top bar when active. The filter button (New Step [navbar-4]) was removed
@@ -21,14 +23,10 @@ export default function TopNavBar({
   navVisible,
   menuOpen,
   onMenuClick,
-  searchOpen,
-  onSearchClick,
 }: {
   navVisible: boolean;
   menuOpen: boolean;
   onMenuClick: () => void;
-  searchOpen: boolean;
-  onSearchClick: () => void;
 }) {
   return (
     <nav
@@ -63,39 +61,25 @@ export default function TopNavBar({
         {!menuOpen && (
           <>
             <span className="h-5 w-px shrink-0 bg-ink/15" aria-hidden="true" />
-            <div className="relative">
-              <button
-                type="button"
-                aria-label="Search"
-                aria-expanded={searchOpen}
-                onClick={onSearchClick}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/70 transition-colors hover:text-accent"
+            <Link
+              href="/search"
+              aria-label="Search"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/70 transition-colors hover:text-accent"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+                aria-hidden="true"
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-5 w-5"
-                  aria-hidden="true"
-                >
-                  <circle cx="11" cy="11" r="7" />
-                  <line x1="20" y1="20" x2="15.5" y2="15.5" />
-                </svg>
-              </button>
-
-              {searchOpen && (
-                <div
-                  role="dialog"
-                  aria-label="Search"
-                  className="glass-chip font-body absolute top-full right-0 mt-3 w-48 rounded-2xl px-4 py-3 text-sm text-ink/70 shadow-sm"
-                >
-                  Search coming soon.
-                </div>
-              )}
-            </div>
+                <circle cx="11" cy="11" r="7" />
+                <line x1="20" y1="20" x2="15.5" y2="15.5" />
+              </svg>
+            </Link>
           </>
         )}
       </div>

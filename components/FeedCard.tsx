@@ -104,7 +104,7 @@ export default function FeedCard({
       onClick={handleCardClick}
     >
       <Link
-        href={`/restaurant/${item.restaurant_id}`}
+        href={`/restaurant/${item.restaurant_id}?from=feed`}
         onClick={(e) => e.stopPropagation()}
         className="mb-6 ml-auto flex w-fit items-center gap-3 text-ink/70 transition-colors hover:text-accent"
       >

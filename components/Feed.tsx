@@ -43,7 +43,6 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
   const [activeSeed, setActiveSeed] = useState(seed);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   // ui-refresh-5: whether the top nav bar is shown. Only ever flipped by
   // handleFeedScroll below — TopNavBar renders its own transform/opacity
   // transition off this, so nothing about card sizing/scroll-snap changes.
@@ -275,8 +274,6 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
           navVisible={isNavVisible}
           menuOpen={isSidebarOpen}
           onMenuClick={() => setIsSidebarOpen((v) => !v)}
-          searchOpen={isSearchOpen}
-          onSearchClick={() => setIsSearchOpen((v) => !v)}
         />
         <Sidebar
           open={isSidebarOpen}
@@ -304,8 +301,6 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
           navVisible={isNavVisible}
           menuOpen={isSidebarOpen}
           onMenuClick={() => setIsSidebarOpen((v) => !v)}
-          searchOpen={isSearchOpen}
-          onSearchClick={() => setIsSearchOpen((v) => !v)}
         />
         <Sidebar
           open={isSidebarOpen}
@@ -330,8 +325,6 @@ export default function Feed({ sort, seed }: { sort: SortMode; seed: number }) {
         navVisible={isNavVisible}
         menuOpen={isSidebarOpen}
         onMenuClick={() => setIsSidebarOpen((v) => !v)}
-        searchOpen={isSearchOpen}
-        onSearchClick={() => setIsSearchOpen((v) => !v)}
       />
       <Sidebar
         open={isSidebarOpen}

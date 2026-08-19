@@ -215,6 +215,134 @@ export async function getRestaurantMenu(
     .select("*")
     .eq("restaurant_id", restaurantId);
 
-  if (error) throw error;
+  // Returns the same empty-array "not found" shape a genuinely missing
+  // restaurant already produces (rather than throwing), same convention as
+  // getMenuItem/getMenuItemName — e.g. a malformed (non-UUID) id trips a
+  // Postgres error here, which app/restaurant/[id]/page.tsx's existing
+  // `items.length === 0` check should handle the same way it handles a
+  // real not-found, not crash the page.
+  if (error) {
+    console.error(error);
+    return [];
+  }
   return data ?? [];
+}
+
+// search-7: fetches a single confirmed menu item for the Menu Item Detail
+// Screen. Returns null (rather than throwing) if it's gone or no longer
+// confirmed, same convention as getMenuItemName above.
+export async function getMenuItem(menuItemId: string): Promise<ConfirmedMenuItem | null> {
+  const { data, error } = await supabase
+    .from("confirmed_menu_items")
+    .select("*")
+    .eq("id", menuItemId)
+    .maybeSingle();
+
+  if (error) {
+    console.error(error);
+    return null;
+  }
+  return data;
+}
+
+// search-3/4: the two grouped result sets the Search Screen renders —
+// matching restaurants and matching menu items, each already chain-deduped
+// down to the nearest location (search-4).
+export type SearchResults = {
+  restaurants: ConfirmedMenuItem[];
+  menuItems: ConfirmedMenuItem[];
+};
+
+const SEARCH_RESULT_LIMIT = 50;
+
+// PostgREST's `.or()` filter list is comma/parenthesis-delimited, so a
+// literal comma or parenthesis in the search term would otherwise be parsed
+// as filter-list syntax instead of part of the value — stripped outright,
+// since a dish/restaurant/category search has no real need to match on them.
+// `%`/`_` are ILIKE wildcards, so a literal one typed by the user is
+// backslash-escaped rather than left to act as one.
+function toIlikePattern(term: string): string {
+  const sanitized = term.replace(/[,()]/g, "");
+  const escaped = sanitized.replace(/[\\%_]/g, (char) => `\\${char}`);
+  return `%${escaped}%`;
+}
+
+// search-4: collapses rows that share a `keyOf` chain key down to the single
+// nearest one, by distance from the user's current position — used both for
+// restaurants (keyed by restaurant_name, so a chain's several locations
+// surface once) and for menu items (keyed by restaurant_name + dish name, so
+// the same dish repeated across chain locations also surfaces once).
+function nearestPerGroup<T extends ConfirmedMenuItem>(
+  items: T[],
+  keyOf: (item: T) => string,
+  userLat: number,
+  userLng: number
+): T[] {
+  const nearestByKey = new Map<string, { item: T; distanceMiles: number }>();
+
+  for (const item of items) {
+    const key = keyOf(item);
+    const distanceMiles = haversineDistanceMiles(userLat, userLng, item.lat, item.lng);
+    const existing = nearestByKey.get(key);
+    if (!existing || distanceMiles < existing.distanceMiles) {
+      nearestByKey.set(key, { item, distanceMiles });
+    }
+  }
+
+  return [...nearestByKey.values()].map(({ item }) => item);
+}
+
+// Live search (search-3): a single confirmed_menu_items query matching the
+// term against dish name, restaurant name, and category (case-insensitive,
+// partial match via ILIKE), split into the two result groups by which
+// field(s) actually matched — a row can contribute to both (e.g. a dish
+// whose own name matches at a restaurant whose name also matches) — then
+// each group is chain-deduped to its nearest location (search-4).
+export async function searchMenuItems(
+  query: string,
+  userLat: number,
+  userLng: number
+): Promise<SearchResults> {
+  const term = query.trim();
+  const pattern = toIlikePattern(term);
+  // Guards against a term that sanitizes down to nothing (e.g. "(),,,"),
+  // which would otherwise become the match-everything pattern "%%".
+  if (!term || pattern === "%%") return { restaurants: [], menuItems: [] };
+
+  const { data, error } = await supabase
+    .from("confirmed_menu_items")
+    .select("*")
+    .or(`name.ilike.${pattern},restaurant_name.ilike.${pattern},category.ilike.${pattern}`)
+    .limit(SEARCH_RESULT_LIMIT);
+
+  if (error) throw error;
+
+  const lowerTerm = term.toLowerCase();
+  const rows = data ?? [];
+
+  const restaurantMatches = rows.filter((item) =>
+    item.restaurant_name.toLowerCase().includes(lowerTerm)
+  );
+  const menuItemMatches = rows.filter(
+    (item) =>
+      item.name.toLowerCase().includes(lowerTerm) ||
+      (item.category?.toLowerCase().includes(lowerTerm) ?? false)
+  );
+
+  return {
+    restaurants: nearestPerGroup(
+      restaurantMatches,
+      (item) => item.restaurant_name,
+      userLat,
+      userLng
+    ),
+    // "::" joined so a restaurant_name/name pair can't collide with a
+    // different pair that happens to concatenate to the same string.
+    menuItems: nearestPerGroup(
+      menuItemMatches,
+      (item) => `${item.restaurant_name}::${item.name}`,
+      userLat,
+      userLng
+    ),
+  };
 }

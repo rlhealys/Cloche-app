@@ -8,7 +8,7 @@ export default function MenuItemRow({ item }: { item: ConfirmedMenuItem }) {
         {item.price !== null && (
           <>
             <span className="flex-1 border-b border-dotted border-ink/30" />
-            <span className="font-utility text-sm font-medium tracking-wide text-ink/70">
+            <span className="font-utility text-sm font-medium tracking-wide text-accent">
               ≈${item.price.toFixed(2)}
             </span>
           </>

@@ -186,7 +186,7 @@ export default function FeedCard({
       {item.price !== null && (
         <div className="mt-6 flex items-baseline gap-2">
           <span className="flex-1 border-b border-dotted border-ink/40" />
-          <span className="font-utility text-lg font-medium tracking-wide text-ink/70">
+          <span className="font-utility text-lg font-medium tracking-wide text-accent">
             ≈${item.price.toFixed(2)}
           </span>
         </div>

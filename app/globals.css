@@ -42,13 +42,15 @@ body {
   border: 1px solid rgb(255 255 255 / 55%);
 }
 
-/* Accented variant of glass-chip (ui-refresh-2) — same frosted-glass base,
-   but tinted/bordered/glowing in --accent so the "Get Directions" badge
-   outranks the plain glass-chip pills (category, restaurant link) around it.
-   Colors derive from --accent via color-mix so they stay in sync with any
-   future token change instead of hardcoding a duplicate hex. */
+/* Accented variant of glass-chip (ui-refresh-2) — the same plain frosted-
+   glass fill as glass-chip (not tinted), but with a bolder --accent border
+   and glow ring around the outside, so the "Get Directions" badge outranks
+   the plain glass-chip pills (category, restaurant link) around it without
+   changing its own fill/text color. Colors derive from --accent via
+   color-mix so they stay in sync with any future token change instead of
+   hardcoding a duplicate hex. */
 @utility glass-chip-accent {
-  background-color: color-mix(in srgb, var(--accent) 20%, transparent);
+  background-color: rgb(255 255 255 / 50%);
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
   border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent);

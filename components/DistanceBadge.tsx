@@ -54,7 +54,7 @@ export default function DistanceBadge({
         e.stopPropagation();
         appendPendingReview(itemId).catch((error) => console.error(error));
       }}
-      className="glass-chip-accent font-utility absolute bottom-10 left-1/2 inline-flex w-fit -translate-x-1/2 items-center gap-2.5 rounded-full px-5 py-2.5 text-sm font-semibold tracking-wide text-accent uppercase transition-shadow hover:shadow-lg"
+      className="glass-chip-accent font-utility absolute bottom-10 left-1/2 inline-flex w-fit -translate-x-1/2 items-center gap-2.5 rounded-full px-5 py-2.5 text-sm tracking-wide text-ink/70 uppercase transition-colors hover:text-accent"
     >
       <svg
         viewBox="0 0 24 24"

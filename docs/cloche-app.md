@@ -322,6 +322,8 @@ Addition: Crowd Support Upvotes (Direct + Post-Directions Review Queue)
 
   New Step [upvotes-9] — Wire the banner's two actions: tapping 👍 writes a vote to the votes table (subject to the same unique constraint as upvotes-1) and removes that entry from the queue. Tapping ✕ (dismiss) simply removes the entry from the queue with no write to votes at all — a dismiss is not treated as a negative signal, since it doesn't reliably mean "disliked it," only "no data," and must never affect upvote_count. Status: done — PendingReviewBanner.tsx now keeps the full PendingReviewEntry (not just itemId) in its banner state, so both actions can remove the exact queued entry via removePendingReview() (lib/pendingReviews.ts, added during the upvotes-8 stale-entry fix). 👍 (handleGood) calls the existing upvoteMenuItem() from upvotes-3 — same (menu_item_id, user_id) unique constraint, same silent-swallow of an already-voted duplicate — then removes the entry and clears the banner. ✕ (handleDismiss) only removes the entry and clears the banner; it never calls upvoteMenuItem or touches votes/upvote_count in any way, so a dismiss carries no signal, positive or negative.
 
+  New Step [upvotes-10] — Enable Row Level Security on the votes table and add policies scoped to the authenticated anonymous user_id from upvotes-2: allow insert only where user_id matches the requester's own auth.uid(); allow delete only where user_id matches the requester's own auth.uid() (needed for upvote removal, per the Visible Upvote Arrow addition); and allow select as needed for the app's own read paths (e.g. checking whether the current user already voted on a given item). RLS was deliberately left disabled when the table was created in upvotes-1, since policies require real user_id semantics that don't exist until anonymous auth (upvotes-2) is live — this step closes that gap now that it is.
+
   Note (not a step) — Known, accepted fragility: localStorage-based queueing can be cleared by private browsing, manual data clearing, or iOS ITP purging after inactivity. Worst case is a silently missed prompt, not a broken experience — this tradeoff is accepted as-is for MVP, not something to engineer around right now.
 
 --- (end of addition: crowd support upvotes (direct + post-directions review queue))
@@ -375,3 +377,11 @@ Addition: Search Feature
   New Step [search-8] — Confirm the full back-navigation chain works end to end: Menu Item Detail Screen or Restaurant Menu Screen → back arrow → Search Screen → exit arrow → Feed Screen.
 
 --- (end of addition: search feature)
+
+Addition: Far-Distance "Get Directions" Badge Override
+
+  New Step [far-badge-1] — Verify that restaurants actually has a city field populated from the Google Places lookup at restaurant-creation time, and that it's exposed through the confirmed_menu_items view (the same class of gap already hit twice with place_id and upvote_count — views freeze mi.*/joined columns at creation time, so a field existing on the base table doesn't guarantee it's queryable by the app). If city is missing from either the table or the view, report back before proceeding — do not assume it's available.
+
+  New Step [far-badge-2] — In the "Get Directions" badge, add a distance threshold of 100 miles, keyed off the same distance value already computed for tiering (no new query, no new data). Below the threshold, the badge behaves exactly as currently designed: 🚗 Get Directions · ~[X] min, sourced from the existing haversine calculation. At or above the threshold, swap the displayed copy to show the rounded distance instead of a drive-time estimate — e.g. 🚗 142 mi away — still sourced from the same haversine value, no city field needed. Tap behavior is unchanged in both cases — it still hands off to native Maps regardless of which copy was shown. No changes to feed, tiering, or filtering logic — this is purely a display-layer conditional on the badge component.
+
+--- (end of addition: far-distance "get directions" badge override)

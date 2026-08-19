@@ -1,6 +1,13 @@
 import { estimateMinutesAway, haversineDistanceMiles } from "@/lib/distance";
 import { appendPendingReview } from "@/lib/pendingReviews";
 
+// far-badge-2: at/above this distance, an estimated drive time (assumed
+// average city speed, per Section 4.4) stops being a meaningful number, so
+// the badge swaps to showing the plain distance instead — no new query, no
+// new data, keyed off the same haversine value already computed for
+// tiering. Tap behavior (hand off to native Maps) is unchanged either way.
+const FAR_DISTANCE_THRESHOLD_MILES = 100;
+
 // No origin param — Google Maps uses the device's own current location as
 // the starting point.
 function buildDirectionsUrl(lat: number, lng: number, placeId: string | null): string {
@@ -33,6 +40,7 @@ export default function DistanceBadge({
 }) {
   const distanceMiles = haversineDistanceMiles(userLat, userLng, lat, lng);
   const minutes = estimateMinutesAway(distanceMiles);
+  const isFar = distanceMiles >= FAR_DISTANCE_THRESHOLD_MILES;
   const directionsUrl = buildDirectionsUrl(lat, lng, placeId);
 
   // TEMP DEBUG — remove after distance bug investigation
@@ -68,9 +76,15 @@ export default function DistanceBadge({
       >
         <path d="M5 17h14M5 17a2 2 0 1 0 4 0M5 17a2 2 0 1 1 4 0M15 17a2 2 0 1 0 4 0M15 17a2 2 0 1 1 4 0M5 17V9l2-4h10l2 4v8" />
       </svg>
-      <span>Get Directions</span>
-      <span className="text-ink/40">·</span>
-      <span className="whitespace-nowrap">≈ {minutes} min</span>
+      {isFar ? (
+        <span className="whitespace-nowrap">{Math.round(distanceMiles)} mi away</span>
+      ) : (
+        <>
+          <span>Get Directions</span>
+          <span className="text-ink/40">·</span>
+          <span className="whitespace-nowrap">≈ {minutes} min</span>
+        </>
+      )}
     </a>
   );
 }
